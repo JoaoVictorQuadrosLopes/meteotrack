@@ -19,11 +19,32 @@ function converterDataFirestore(data) {
   return new Date(data);
 }
 
+async function buscarLocalDoUsuario(localId, usuarioId) {
+  const localDoc = await db.collection("locais_monitorados").doc(localId).get();
+
+  if (!localDoc.exists) {
+    return null;
+  }
+
+  const local = localDoc.data();
+
+  if (local.usuario_id !== usuarioId) {
+    return null;
+  }
+
+  return {
+    id: localDoc.id,
+    ...local
+  };
+}
+
 async function listarRegistros(req, res) {
   try {
     const { local_id, data_inicio, data_fim } = req.query;
 
-    let query = db.collection("registros_meteorologicos");
+    let query = db
+      .collection("registros_meteorologicos")
+      .where("usuario_id", "==", req.usuario.uid);
 
     if (local_id) {
       query = query.where("local_id", "==", local_id);
@@ -36,12 +57,6 @@ async function listarRegistros(req, res) {
     for (const doc of snapshot.docs) {
       const dados = doc.data();
       const dataConvertida = converterDataFirestore(dados.data_hora);
-
-      let registro = {
-        id: doc.id,
-        ...dados,
-        data_hora: dataConvertida ? dataConvertida.toISOString() : null
-      };
 
       if (data_inicio) {
         const inicio = new Date(`${data_inicio}T00:00:00`);
@@ -63,23 +78,27 @@ async function listarRegistros(req, res) {
       let cidade = "";
       let estado = "";
 
-      if (registro.local_id) {
+      if (dados.local_id) {
         const localDoc = await db
           .collection("locais_monitorados")
-          .doc(registro.local_id)
+          .doc(dados.local_id)
           .get();
 
         if (localDoc.exists) {
           const localData = localDoc.data();
 
-          local_nome = localData.nome;
-          cidade = localData.cidade;
-          estado = localData.estado || "";
+          if (localData.usuario_id === req.usuario.uid) {
+            local_nome = localData.nome;
+            cidade = localData.cidade || "";
+            estado = localData.estado || "";
+          }
         }
       }
 
       registros.push({
-        ...registro,
+        id: doc.id,
+        ...dados,
+        data_hora: dataConvertida ? dataConvertida.toISOString() : null,
         local_nome,
         cidade,
         estado
@@ -87,12 +106,12 @@ async function listarRegistros(req, res) {
     }
 
     registros.sort((a, b) => {
-      return new Date(b.data_hora) - new Date(a.data_hora);
+      return new Date(b.data_hora || 0) - new Date(a.data_hora || 0);
     });
 
     return res.json(registros);
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao listar registros:", error);
 
     return res.status(500).json({
       erro: "Erro ao listar registros meteorológicos."
@@ -123,8 +142,17 @@ async function criarRegistro(req, res) {
       });
     }
 
+    const local = await buscarLocalDoUsuario(local_id, req.usuario.uid);
+
+    if (!local) {
+      return res.status(403).json({
+        erro: "Local não encontrado ou sem permissão."
+      });
+    }
+
     const novoRegistro = {
       local_id,
+      usuario_id: req.usuario.uid,
       data_hora: new Date(data_hora),
       temperatura: Number(temperatura || 0),
       umidade: Number(umidade || 0),
@@ -145,10 +173,12 @@ async function criarRegistro(req, res) {
 
     return res.status(201).json({
       id: docRef.id,
-      ...novoRegistro
+      ...novoRegistro,
+      data_hora: novoRegistro.data_hora.toISOString(),
+      criado_em: novoRegistro.criado_em.toISOString()
     });
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao criar registro:", error);
 
     return res.status(500).json({
       erro: "Erro ao criar registro meteorológico."
@@ -160,18 +190,13 @@ async function coletarRegistroAtual(req, res) {
   try {
     const { localId } = req.params;
 
-    const localDoc = await db
-      .collection("locais_monitorados")
-      .doc(localId)
-      .get();
+    const local = await buscarLocalDoUsuario(localId, req.usuario.uid);
 
-    if (!localDoc.exists) {
+    if (!local) {
       return res.status(404).json({
-        erro: "Local não encontrado."
+        erro: "Local não encontrado ou sem permissão."
       });
     }
-
-    const local = localDoc.data();
 
     if (!local.latitude || !local.longitude) {
       return res.status(400).json({
@@ -184,6 +209,7 @@ async function coletarRegistroAtual(req, res) {
 
     const novoRegistro = {
       local_id: localId,
+      usuario_id: req.usuario.uid,
       data_hora: new Date(),
       temperatura: Number(climaAtual.temperature_2m || 0),
       umidade: Number(climaAtual.relative_humidity_2m || 0),
@@ -206,7 +232,9 @@ async function coletarRegistroAtual(req, res) {
       mensagem: "Registro meteorológico coletado com sucesso.",
       registro: {
         id: docRef.id,
-        ...novoRegistro
+        ...novoRegistro,
+        data_hora: novoRegistro.data_hora.toISOString(),
+        criado_em: novoRegistro.criado_em.toISOString()
       },
       local: {
         id: localId,
@@ -216,7 +244,7 @@ async function coletarRegistroAtual(req, res) {
       }
     });
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao coletar registro atual:", error);
 
     return res.status(500).json({
       erro: "Erro ao coletar registro meteorológico atual."
@@ -228,6 +256,7 @@ async function coletarRegistrosTodosLocais(req, res) {
   try {
     const snapshot = await db
       .collection("locais_monitorados")
+      .where("usuario_id", "==", req.usuario.uid)
       .get();
 
     if (snapshot.empty) {
@@ -254,15 +283,12 @@ async function coletarRegistrosTodosLocais(req, res) {
           continue;
         }
 
-        const dadosClima = await buscarClimaAtual(
-          local.latitude,
-          local.longitude
-        );
-
+        const dadosClima = await buscarClimaAtual(local.latitude, local.longitude);
         const climaAtual = dadosClima.current;
 
         const novoRegistro = {
           local_id: localId,
+          usuario_id: req.usuario.uid,
           data_hora: new Date(),
           temperatura: Number(climaAtual.temperature_2m || 0),
           umidade: Number(climaAtual.relative_humidity_2m || 0),
@@ -308,27 +334,42 @@ async function coletarRegistrosTodosLocais(req, res) {
       resultados
     });
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao coletar todos:", error);
 
     return res.status(500).json({
       erro: "Erro ao coletar registros de todos os locais."
     });
   }
 }
+
 async function deletarRegistro(req, res) {
   try {
     const { id } = req.params;
 
-    await db
-      .collection("registros_meteorologicos")
-      .doc(id)
-      .delete();
+    const registroRef = db.collection("registros_meteorologicos").doc(id);
+    const registroDoc = await registroRef.get();
+
+    if (!registroDoc.exists) {
+      return res.status(404).json({
+        erro: "Registro não encontrado."
+      });
+    }
+
+    const registro = registroDoc.data();
+
+    if (registro.usuario_id !== req.usuario.uid) {
+      return res.status(403).json({
+        erro: "Você não tem permissão para excluir este registro."
+      });
+    }
+
+    await registroRef.delete();
 
     return res.json({
       mensagem: "Registro excluído com sucesso."
     });
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao excluir registro:", error);
 
     return res.status(500).json({
       erro: "Erro ao excluir registro meteorológico."

@@ -1,4 +1,5 @@
 const express = require("express");
+const autenticarUsuario = require("../middlewares/authMiddleware");
 
 const {
   listarEstacoes,
@@ -10,12 +11,13 @@ const {
 
 const router = express.Router();
 
+router.post("/dados", receberDadosEstacao);
+
+router.use(autenticarUsuario);
+
 router.get("/", listarEstacoes);
 router.post("/", criarEstacao);
 router.patch("/:id/status", alternarStatusEstacao);
 router.delete("/:id", deletarEstacao);
-
-// Rota usada pelo ESP32/Arduino para enviar medições
-router.post("/dados", receberDadosEstacao);
 
 module.exports = router;

@@ -7,6 +7,8 @@ const registrosRoutes = require("./routes/registrosRoutes");
 const weatherRoutes = require("./routes/weatherRoutes");
 const estacoesRoutes = require("./routes/estacoesRoutes");
 const statusRoutes = require("./routes/statusRoutes");
+const relatoriosRoutes = require("./routes/relatoriosRoutes");
+const autenticarUsuario = require("./middlewares/authMiddleware");
 
 const { iniciarColetaAutomatica } = require("./jobs/coletaAutomatica");
 
@@ -26,6 +28,12 @@ app.use("/api/registros", registrosRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/estacoes", estacoesRoutes);
 app.use("/api/status", statusRoutes);
+app.use("/api/locais", autenticarUsuario, locaisRoutes);
+app.use("/api/registros", autenticarUsuario, registrosRoutes);
+app.use("/api/status", autenticarUsuario, statusRoutes);
+app.use("/api/relatorios", autenticarUsuario, relatoriosRoutes);
+
+
 iniciarColetaAutomatica();
 
 const PORT = process.env.PORT || 3000;

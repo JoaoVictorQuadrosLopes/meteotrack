@@ -2,16 +2,18 @@ const express = require("express");
 
 const {
   listarLocais,
+  buscarLocalPorId,
   criarLocal,
-  deletarLocal,
-  buscarLocalPorId
+  atualizarLocal,
+  deletarLocal
 } = require("../controllers/locaisController");
 
 const router = express.Router();
 
 router.get("/", listarLocais);
-router.post("/", criarLocal);
-router.delete("/:id", deletarLocal);
 router.get("/:id", buscarLocalPorId);
+router.post("/", criarLocal);
+router.put("/:id", atualizarLocal);
+router.delete("/:id", deletarLocal);
 
 module.exports = router;

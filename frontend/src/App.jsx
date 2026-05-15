@@ -14,8 +14,25 @@ import AlertasMeteorologicos from "./pages/AlertasMeteorologicos";
 import Configuracoes from "./pages/Configuracoes";
 import StatusSistema from "./pages/StatusSistema";
 import EstacoesLocais from "./pages/EstacoesLocais";
+import Login from "./pages/Login";
+import { useAuth } from "./contexts/AuthContext";
 
 function App() {
+  const { usuario, carregandoAuth } = useAuth();
+
+if (carregandoAuth) {
+  return (
+    <div className="auth-page">
+      <div className="auth-card">
+        <p>Carregando sistema...</p>
+      </div>
+    </div>
+  );
+}
+
+if (!usuario) {
+  return <Login />;
+}
   return (
     <BrowserRouter>
       <div className="app">

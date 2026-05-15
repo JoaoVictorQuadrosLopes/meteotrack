@@ -27,7 +27,7 @@ async function listarEstacoes(req, res) {
   try {
     const snapshot = await db
       .collection("estacoes_locais")
-      .orderBy("criado_em", "desc")
+      .where("usuario_id", "==", req.usuario.uid)
       .get();
 
     const estacoes = [];
@@ -47,9 +47,12 @@ async function listarEstacoes(req, res) {
 
         if (localDoc.exists) {
           const localData = localDoc.data();
-          local_nome = localData.nome;
-          cidade = localData.cidade || "";
-          estado = localData.estado || "";
+
+          if (localData.usuario_id === req.usuario.uid) {
+            local_nome = localData.nome;
+            cidade = localData.cidade || "";
+            estado = localData.estado || "";
+          }
         }
       }
 
@@ -67,9 +70,13 @@ async function listarEstacoes(req, res) {
       });
     }
 
+    estacoes.sort((a, b) => {
+      return new Date(b.criado_em || 0) - new Date(a.criado_em || 0);
+    });
+
     return res.json(estacoes);
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao listar estações:", error);
 
     return res.status(500).json({
       erro: "Erro ao listar estações locais."
@@ -103,14 +110,29 @@ async function criarEstacao(req, res) {
       });
     }
 
+    const local = localDoc.data();
+
+    if (local.usuario_id !== req.usuario.uid) {
+      return res.status(403).json({
+        erro: "Você não tem permissão para vincular esta estação a este local."
+      });
+    }
+
     const novaEstacao = {
       nome,
       local_id,
+      usuario_id: req.usuario.uid,
       modelo: modelo || "ESP32 + Sensor",
       descricao: descricao || "",
       station_key: gerarChaveEstacao(),
       ativa: true,
       ultima_leitura_em: null,
+      ultima_temperatura: null,
+      ultima_umidade: null,
+      ultima_pressao: null,
+      ultima_vento_velocidade: null,
+      ultima_vento_direcao: null,
+      ultima_precipitacao: null,
       criado_em: new Date()
     };
 
@@ -120,10 +142,11 @@ async function criarEstacao(req, res) {
 
     return res.status(201).json({
       id: docRef.id,
-      ...novaEstacao
+      ...novaEstacao,
+      criado_em: novaEstacao.criado_em.toISOString()
     });
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao criar estação:", error);
 
     return res.status(500).json({
       erro: "Erro ao criar estação local."
@@ -135,10 +158,8 @@ async function alternarStatusEstacao(req, res) {
   try {
     const { id } = req.params;
 
-    const estacaoDoc = await db
-      .collection("estacoes_locais")
-      .doc(id)
-      .get();
+    const estacaoRef = db.collection("estacoes_locais").doc(id);
+    const estacaoDoc = await estacaoRef.get();
 
     if (!estacaoDoc.exists) {
       return res.status(404).json({
@@ -148,19 +169,22 @@ async function alternarStatusEstacao(req, res) {
 
     const estacao = estacaoDoc.data();
 
-    await db
-      .collection("estacoes_locais")
-      .doc(id)
-      .update({
-        ativa: !estacao.ativa
+    if (estacao.usuario_id !== req.usuario.uid) {
+      return res.status(403).json({
+        erro: "Você não tem permissão para alterar esta estação."
       });
+    }
+
+    await estacaoRef.update({
+      ativa: !estacao.ativa
+    });
 
     return res.json({
       mensagem: "Status da estação atualizado com sucesso.",
       ativa: !estacao.ativa
     });
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao alterar status da estação:", error);
 
     return res.status(500).json({
       erro: "Erro ao alterar status da estação."
@@ -172,16 +196,30 @@ async function deletarEstacao(req, res) {
   try {
     const { id } = req.params;
 
-    await db
-      .collection("estacoes_locais")
-      .doc(id)
-      .delete();
+    const estacaoRef = db.collection("estacoes_locais").doc(id);
+    const estacaoDoc = await estacaoRef.get();
+
+    if (!estacaoDoc.exists) {
+      return res.status(404).json({
+        erro: "Estação local não encontrada."
+      });
+    }
+
+    const estacao = estacaoDoc.data();
+
+    if (estacao.usuario_id !== req.usuario.uid) {
+      return res.status(403).json({
+        erro: "Você não tem permissão para excluir esta estação."
+      });
+    }
+
+    await estacaoRef.delete();
 
     return res.json({
       mensagem: "Estação local excluída com sucesso."
     });
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao excluir estação:", error);
 
     return res.status(500).json({
       erro: "Erro ao excluir estação local."
@@ -233,6 +271,7 @@ async function receberDadosEstacao(req, res) {
     const novoRegistro = {
       local_id: estacao.local_id,
       estacao_id: estacaoDoc.id,
+      usuario_id: estacao.usuario_id,
       data_hora: new Date(),
       temperatura: Number(temperatura || 0),
       umidade: Number(umidade || 0),
@@ -251,18 +290,18 @@ async function receberDadosEstacao(req, res) {
       .collection("registros_meteorologicos")
       .add(novoRegistro);
 
-await db
-  .collection("estacoes_locais")
-  .doc(estacaoDoc.id)
-  .update({
-    ultima_leitura_em: new Date(),
-    ultima_temperatura: Number(temperatura || 0),
-    ultima_umidade: Number(umidade || 0),
-    ultima_pressao: Number(pressao || 0),
-    ultima_vento_velocidade: Number(vento_velocidade || 0),
-    ultima_vento_direcao: Number(vento_direcao || 0),
-    ultima_precipitacao: Number(precipitacao || 0)
-  });
+    await db
+      .collection("estacoes_locais")
+      .doc(estacaoDoc.id)
+      .update({
+        ultima_leitura_em: new Date(),
+        ultima_temperatura: Number(temperatura || 0),
+        ultima_umidade: Number(umidade || 0),
+        ultima_pressao: Number(pressao || 0),
+        ultima_vento_velocidade: Number(vento_velocidade || 0),
+        ultima_vento_direcao: Number(vento_direcao || 0),
+        ultima_precipitacao: Number(precipitacao || 0)
+      });
 
     return res.status(201).json({
       mensagem: "Dados da estação recebidos e salvos com sucesso.",
@@ -270,7 +309,7 @@ await db
       estacao_id: estacaoDoc.id
     });
   } catch (error) {
-    console.error(error);
+    console.error("Erro ao receber dados da estação:", error);
 
     return res.status(500).json({
       erro: "Erro ao receber dados da estação local."
