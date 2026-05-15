@@ -5,11 +5,11 @@ require("dotenv").config();
 const locaisRoutes = require("./routes/locaisRoutes");
 const registrosRoutes = require("./routes/registrosRoutes");
 const weatherRoutes = require("./routes/weatherRoutes");
-const estacoesRoutes = require("./routes/estacoesRoutes");
-const statusRoutes = require("./routes/statusRoutes");
 const relatoriosRoutes = require("./routes/relatoriosRoutes");
-const autenticarUsuario = require("./middlewares/authMiddleware");
+const statusRoutes = require("./routes/statusRoutes");
+const estacoesRoutes = require("./routes/estacoesRoutes");
 
+const autenticarUsuario = require("./middlewares/authMiddleware");
 const { iniciarColetaAutomatica } = require("./jobs/coletaAutomatica");
 
 const app = express();
@@ -23,16 +23,17 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use("/api/locais", locaisRoutes);
-app.use("/api/registros", registrosRoutes);
+// Rota pública: busca clima/cidade, não precisa login
 app.use("/api/weather", weatherRoutes);
-app.use("/api/estacoes", estacoesRoutes);
-app.use("/api/status", statusRoutes);
+
+// Rotas protegidas: precisam do token do Firebase
 app.use("/api/locais", autenticarUsuario, locaisRoutes);
 app.use("/api/registros", autenticarUsuario, registrosRoutes);
-app.use("/api/status", autenticarUsuario, statusRoutes);
 app.use("/api/relatorios", autenticarUsuario, relatoriosRoutes);
+app.use("/api/status", autenticarUsuario, statusRoutes);
 
+// Estações: /dados fica pública dentro da própria rota, o resto é protegido lá
+app.use("/api/estacoes", estacoesRoutes);
 
 iniciarColetaAutomatica();
 

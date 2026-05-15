@@ -11,8 +11,10 @@ const {
 
 const router = express.Router();
 
+// Pública para ESP8266
 router.post("/dados", receberDadosEstacao);
 
+// Daqui para baixo exige login
 router.use(autenticarUsuario);
 
 router.get("/", listarEstacoes);
