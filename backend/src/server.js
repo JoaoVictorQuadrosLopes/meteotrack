@@ -6,6 +6,7 @@ const locaisRoutes = require("./routes/locaisRoutes");
 const registrosRoutes = require("./routes/registrosRoutes");
 const weatherRoutes = require("./routes/weatherRoutes");
 const estacoesRoutes = require("./routes/estacoesRoutes");
+const statusRoutes = require("./routes/statusRoutes");
 
 const { iniciarColetaAutomatica } = require("./jobs/coletaAutomatica");
 
@@ -24,7 +25,7 @@ app.use("/api/locais", locaisRoutes);
 app.use("/api/registros", registrosRoutes);
 app.use("/api/weather", weatherRoutes);
 app.use("/api/estacoes", estacoesRoutes);
-
+app.use("/api/status", statusRoutes);
 iniciarColetaAutomatica();
 
 const PORT = process.env.PORT || 3000;
