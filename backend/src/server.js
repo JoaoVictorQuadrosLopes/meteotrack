@@ -10,7 +10,7 @@ const statusRoutes = require("./routes/statusRoutes");
 const estacoesRoutes = require("./routes/estacoesRoutes");
 
 const autenticarUsuario = require("./middlewares/authMiddleware");
-const { iniciarColetaAutomatica } = require("./jobs/coletaAutomatica");
+const { iniciarColetaAutomatica } = require("./jobs/coletarRegistrosAutomaticos");
 
 const app = express();
 
