@@ -2,17 +2,18 @@ const cron = require("node-cron");
 const db = require("../config/firebase");
 const { buscarClimaAtual } = require("../services/openMeteoService");
 
-async function coletarRegistrosAutomaticamente() {
+async function coletarRegistrosAutomaticos() {
   try {
-    console.log("Iniciando coleta automática de registros meteorológicos...");
+    console.log("Iniciando coleta automática de registros...");
 
     const snapshot = await db.collection("locais_monitorados").get();
 
     if (snapshot.empty) {
-      console.log("Nenhum local monitorado encontrado para coleta automática.");
+      console.log("Nenhum local monitorado encontrado.");
       return;
     }
 
+    let total = 0;
     let sucessos = 0;
     let falhas = 0;
 
@@ -20,9 +21,17 @@ async function coletarRegistrosAutomaticamente() {
       const localId = doc.id;
       const local = doc.data();
 
+      total++;
+
       try {
         if (!local.latitude || !local.longitude) {
-          console.log(`Local sem coordenadas: ${local.nome}`);
+          console.log(`Local ${local.nome} sem latitude/longitude.`);
+          falhas++;
+          continue;
+        }
+
+        if (!local.usuario_id) {
+          console.log(`Local ${local.nome} sem usuario_id.`);
           falhas++;
           continue;
         }
@@ -36,7 +45,9 @@ async function coletarRegistrosAutomaticamente() {
 
         const novoRegistro = {
           local_id: localId,
+          usuario_id: local.usuario_id,
           data_hora: new Date(),
+
           temperatura: Number(climaAtual.temperature_2m || 0),
           umidade: Number(climaAtual.relative_humidity_2m || 0),
           pressao: Number(climaAtual.pressure_msl || 0),
@@ -45,14 +56,20 @@ async function coletarRegistrosAutomaticamente() {
           precipitacao: Number(climaAtual.precipitation || 0),
           nebulosidade: Number(climaAtual.cloud_cover || 0),
           visibilidade: Number(climaAtual.visibility || 0),
-          origem: "automatica",
+
+          origem: "api_automatica",
           observacao: `Registro automático coletado para ${local.nome}.`,
           criado_em: new Date()
         };
 
-        await db.collection("registros_meteorologicos").add(novoRegistro);
+        const registroRef = await db
+          .collection("registros_meteorologicos")
+          .add(novoRegistro);
 
-        console.log(`Registro automático salvo: ${local.nome}`);
+        console.log(
+          `Registro salvo para ${local.nome}. ID: ${registroRef.id}`
+        );
+
         sucessos++;
       } catch (error) {
         console.error(`Erro ao coletar dados de ${local.nome}:`, error.message);
@@ -60,24 +77,25 @@ async function coletarRegistrosAutomaticamente() {
       }
     }
 
-    console.log(
-      `Coleta automática finalizada. Sucessos: ${sucessos} | Falhas: ${falhas}`
-    );
+    console.log("Coleta automática finalizada:", {
+      total,
+      sucessos,
+      falhas
+    });
   } catch (error) {
     console.error("Erro geral na coleta automática:", error);
   }
 }
 
 function iniciarColetaAutomatica() {
-  // Executa a cada 1 hora.
-  cron.schedule("0 * * * *", async () => {
-    await coletarRegistrosAutomaticamente();
+  cron.schedule("*/10 * * * *", async () => {
+    await coletarRegistrosAutomaticos();
   });
 
-  console.log("Coleta automática configurada para executar a cada 1 hora.");
+  console.log("Coleta automática agendada para rodar a cada 10 minutos.");
 }
 
 module.exports = {
   iniciarColetaAutomatica,
-  coletarRegistrosAutomaticamente
+  coletarRegistrosAutomaticos
 };
