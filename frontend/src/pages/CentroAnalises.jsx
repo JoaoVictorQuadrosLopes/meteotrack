@@ -130,52 +130,64 @@ function CentroAnalises() {
     };
   }
 
-  async function buscarAnalise(e) {
-    if (e) e.preventDefault();
+ async function buscarAnalise(e) {
+  if (e) e.preventDefault();
 
-    if (!localId) {
-      setMensagem("Selecione um local para analisar.");
-      return;
-    }
-
-    if (!dataInicio || !dataFim) {
-      setMensagem("Informe a data inicial e a data final.");
-      return;
-    }
-
-    try {
-      setCarregando(true);
-      setMensagem("");
-
-      const response = await api.get("/registros", {
-        params: {
-          local_id: localId,
-          data_inicio: dataInicio,
-          data_fim: dataFim
-        }
-      });
-
-      const dados = response.data;
-
-      const dadosOrdenados = [...dados].sort((a, b) => {
-        return new Date(a.data_hora) - new Date(b.data_hora);
-      });
-
-      setRegistros(dadosOrdenados);
-      setResumo(calcularResumo(dadosOrdenados));
-
-      if (dadosOrdenados.length === 0) {
-        setMensagem(
-          "Nenhum registro encontrado para esse local no período selecionado."
-        );
-      }
-    } catch (error) {
-      console.error("Erro ao buscar análise:", error);
-      setMensagem("Erro ao carregar análise meteorológica.");
-    } finally {
-      setCarregando(false);
-    }
+  if (!localId) {
+    setMensagem("Selecione um local para analisar.");
+    return;
   }
+
+  if (!dataInicio || !dataFim) {
+    setMensagem("Informe a data inicial e a data final.");
+    return;
+  }
+
+  try {
+    setCarregando(true);
+    setMensagem("");
+
+    // 1. Primeiro coleta e salva um registro novo no banco
+    await api.post(`/registros/coletar/${localId}`);
+
+    // 2. Depois busca os registros salvos no período
+    const response = await api.get("/registros", {
+      params: {
+        local_id: localId,
+        data_inicio: dataInicio,
+        data_fim: dataFim
+      }
+    });
+
+    const dados = response.data;
+
+    const dadosOrdenados = [...dados].sort((a, b) => {
+      return new Date(a.data_hora) - new Date(b.data_hora);
+    });
+
+    setRegistros(dadosOrdenados);
+    setResumo(calcularResumo(dadosOrdenados));
+
+    if (dadosOrdenados.length === 0) {
+      setMensagem(
+        "Registro coletado, mas nenhum dado foi encontrado dentro do período selecionado. Verifique as datas."
+      );
+    } else {
+      setMensagem("Análise gerada e registro salvo com sucesso.");
+    }
+  } catch (error) {
+    console.error("Erro ao buscar análise:", error);
+
+    const erroApi =
+      error.response?.data?.erro ||
+      error.response?.data?.message ||
+      "Erro ao carregar análise meteorológica.";
+
+    setMensagem(erroApi);
+  } finally {
+    setCarregando(false);
+  }
+}
 
   function montarDadosGrafico() {
     return registros.map((registro) => ({

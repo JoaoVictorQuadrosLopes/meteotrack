@@ -1,4 +1,5 @@
 const express = require("express");
+const autenticarUsuario = require("../middlewares/authMiddleware");
 
 const {
   listarRegistros,
@@ -10,11 +11,16 @@ const {
 
 const router = express.Router();
 
+// Todas as rotas de registros precisam de usuário logado,
+// porque o controller usa req.usuario.uid
+router.use(autenticarUsuario);
+
 router.get("/", listarRegistros);
 router.post("/", criarRegistro);
 
 router.post("/coletar-todos", coletarRegistrosTodosLocais);
 router.post("/coletar/:localId", coletarRegistroAtual);
+
 router.delete("/:id", deletarRegistro);
 
 module.exports = router;
