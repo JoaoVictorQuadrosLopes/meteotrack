@@ -11,8 +11,6 @@ const {
 
 const router = express.Router();
 
-// Todas as rotas de registros precisam de usuário logado,
-// porque o controller usa req.usuario.uid
 router.use(autenticarUsuario);
 
 router.get("/", listarRegistros);
