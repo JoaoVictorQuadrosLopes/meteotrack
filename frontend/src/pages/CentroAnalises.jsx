@@ -18,7 +18,6 @@ import {
   Droplets,
   Wind,
   CloudRain,
-  Gauge,
   CalendarDays
 } from "lucide-react";
 
@@ -37,6 +36,7 @@ function CentroAnalises() {
   async function carregarLocais() {
     try {
       const response = await api.get("/locais");
+
       setLocais(response.data);
 
       if (response.data.length > 0) {
@@ -110,6 +110,8 @@ function CentroAnalises() {
     );
 
     const media = (lista) => {
+      if (lista.length === 0) return 0;
+
       const soma = lista.reduce((total, item) => total + item, 0);
       return soma / lista.length;
     };
@@ -130,64 +132,72 @@ function CentroAnalises() {
     };
   }
 
- async function buscarAnalise(e) {
-  if (e) e.preventDefault();
+  async function buscarAnalise(e) {
+    if (e) e.preventDefault();
 
-  if (!localId) {
-    setMensagem("Selecione um local para analisar.");
-    return;
-  }
-
-  if (!dataInicio || !dataFim) {
-    setMensagem("Informe a data inicial e a data final.");
-    return;
-  }
-
-  try {
-    setCarregando(true);
-    setMensagem("");
-
-    // 1. Primeiro coleta e salva um registro novo no banco
-    await api.post(`/registros/coletar/${localId}`);
-
-    // 2. Depois busca os registros salvos no período
-    const response = await api.get("/registros", {
-      params: {
-        local_id: localId,
-        data_inicio: dataInicio,
-        data_fim: dataFim
-      }
-    });
-
-    const dados = response.data;
-
-    const dadosOrdenados = [...dados].sort((a, b) => {
-      return new Date(a.data_hora) - new Date(b.data_hora);
-    });
-
-    setRegistros(dadosOrdenados);
-    setResumo(calcularResumo(dadosOrdenados));
-
-    if (dadosOrdenados.length === 0) {
-      setMensagem(
-        "Registro coletado, mas nenhum dado foi encontrado dentro do período selecionado. Verifique as datas."
-      );
-    } else {
-      setMensagem("Análise gerada e registro salvo com sucesso.");
+    if (!localId) {
+      setMensagem("Selecione um local para analisar.");
+      return;
     }
-  } catch (error) {
-    console.error("Erro ao buscar análise:", error);
 
-    const erroApi =
-      error.response?.data?.erro ||
-      error.response?.data?.message ||
-      "Erro ao carregar análise meteorológica.";
+    if (!dataInicio || !dataFim) {
+      setMensagem("Informe a data inicial e a data final.");
+      return;
+    }
 
-    setMensagem(erroApi);
-  } finally {
-    setCarregando(false);
+    try {
+      setCarregando(true);
+      setMensagem("");
+
+      console.log("Local selecionado:", localId);
+      console.log("Coletando novo registro...");
+
+      const coletaResponse = await api.post(`/registros/coletar/${localId}`);
+
+      console.log("Resposta da coleta:", coletaResponse.data);
+
+      console.log("Buscando registros salvos...");
+
+      const response = await api.get("/registros", {
+        params: {
+          local_id: localId,
+          data_inicio: dataInicio,
+          data_fim: dataFim
+        }
+      });
+
+      console.log("Registros encontrados:", response.data);
+
+      const dados = response.data;
+
+      const dadosOrdenados = [...dados].sort((a, b) => {
+        return new Date(a.data_hora) - new Date(b.data_hora);
+      });
+
+      setRegistros(dadosOrdenados);
+      setResumo(calcularResumo(dadosOrdenados));
+
+      if (dadosOrdenados.length === 0) {
+        setMensagem(
+          "Registro coletado, mas nenhum dado foi encontrado dentro do período selecionado. Verifique as datas."
+        );
+      } else {
+        setMensagem("Análise gerada e registro salvo com sucesso.");
+      }
+    } catch (error) {
+      console.error("Erro ao buscar análise:", error);
+
+      const erroApi =
+        error.response?.data?.erro ||
+        error.response?.data?.message ||
+        error.message ||
+        "Erro ao carregar análise meteorológica.";
+
+      setMensagem(erroApi);
+    } finally {
+      setCarregando(false);
+    }
   }
-}
 
   function montarDadosGrafico() {
     return registros.map((registro) => ({
@@ -305,7 +315,7 @@ function CentroAnalises() {
           />
         </div>
 
-        <button type="submit" className="submit-button">
+        <button type="submit" className="submit-button" disabled={carregando}>
           <Search size={18} />
           {carregando ? "Analisando..." : "Gerar análise"}
         </button>
