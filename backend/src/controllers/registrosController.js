@@ -99,6 +99,7 @@ async function listarRegistros(req, res) {
         id: doc.id,
         ...dados,
         data_hora: dataConvertida ? dataConvertida.toISOString() : null,
+        radiacao_solar: Number(dados.radiacao_solar || 0),
         local_nome,
         cidade,
         estado
@@ -132,6 +133,7 @@ async function criarRegistro(req, res) {
       precipitacao,
       nebulosidade,
       visibilidade,
+      radiacao_solar,
       origem,
       observacao
     } = req.body;
@@ -162,6 +164,7 @@ async function criarRegistro(req, res) {
       precipitacao: Number(precipitacao || 0),
       nebulosidade: Number(nebulosidade || 0),
       visibilidade: Number(visibilidade || 0),
+      radiacao_solar: Number(radiacao_solar || 0),
       origem: origem || "manual",
       observacao: observacao || "",
       criado_em: new Date()
@@ -205,7 +208,7 @@ async function coletarRegistroAtual(req, res) {
     }
 
     const dadosClima = await buscarClimaAtual(local.latitude, local.longitude);
-    const climaAtual = dadosClima.current;
+    const climaAtual = dadosClima.current || {};
 
     const novoRegistro = {
       local_id: localId,
@@ -219,6 +222,7 @@ async function coletarRegistroAtual(req, res) {
       precipitacao: Number(climaAtual.precipitation || 0),
       nebulosidade: Number(climaAtual.cloud_cover || 0),
       visibilidade: Number(climaAtual.visibility || 0),
+      radiacao_solar: Number(climaAtual.shortwave_radiation || 0),
       origem: "api",
       observacao: `Registro automático coletado para ${local.nome}.`,
       criado_em: new Date()
@@ -284,7 +288,7 @@ async function coletarRegistrosTodosLocais(req, res) {
         }
 
         const dadosClima = await buscarClimaAtual(local.latitude, local.longitude);
-        const climaAtual = dadosClima.current;
+        const climaAtual = dadosClima.current || {};
 
         const novoRegistro = {
           local_id: localId,
@@ -298,6 +302,7 @@ async function coletarRegistrosTodosLocais(req, res) {
           precipitacao: Number(climaAtual.precipitation || 0),
           nebulosidade: Number(climaAtual.cloud_cover || 0),
           visibilidade: Number(climaAtual.visibility || 0),
+          radiacao_solar: Number(climaAtual.shortwave_radiation || 0),
           origem: "api",
           observacao: `Registro automático coletado para ${local.nome}.`,
           criado_em: new Date()

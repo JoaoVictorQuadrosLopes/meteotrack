@@ -18,7 +18,8 @@ import {
   Droplets,
   Wind,
   CloudRain,
-  CalendarDays
+  CalendarDays,
+  Sun
 } from "lucide-react";
 
 import api from "../services/api";
@@ -85,7 +86,9 @@ function CentroAnalises() {
         umidadeMedia: 0,
         ventoMedio: 0,
         pressaoMedia: 0,
-        chuvaTotal: 0
+        chuvaTotal: 0,
+        radiacaoSolarMedia: 0,
+        radiacaoSolarMaxima: 0
       };
     }
 
@@ -109,6 +112,10 @@ function CentroAnalises() {
       Number(r.precipitacao || 0)
     );
 
+    const radiacoes = registrosRecebidos.map((r) =>
+      Number(r.radiacao_solar || 0)
+    );
+
     const media = (lista) => {
       if (lista.length === 0) return 0;
 
@@ -128,7 +135,9 @@ function CentroAnalises() {
       umidadeMedia: media(umidades),
       ventoMedio: media(ventos),
       pressaoMedia: media(pressoes),
-      chuvaTotal: soma(chuvas)
+      chuvaTotal: soma(chuvas),
+      radiacaoSolarMedia: media(radiacoes),
+      radiacaoSolarMaxima: Math.max(...radiacoes)
     };
   }
 
@@ -207,7 +216,8 @@ function CentroAnalises() {
       umidade: Number(registro.umidade || 0),
       chuva: Number(registro.precipitacao || 0),
       vento: Number(registro.vento_velocidade || 0),
-      pressao: Number(registro.pressao || 0)
+      pressao: Number(registro.pressao || 0),
+      radiacaoSolar: Number(registro.radiacao_solar || 0)
     }));
   }
 
@@ -249,6 +259,15 @@ function CentroAnalises() {
         mensagem: `O total de chuva no período foi de ${formatarNumero(
           resumo.chuvaTotal
         )} mm.`
+      });
+    }
+
+    if (resumo.radiacaoSolarMaxima >= 800) {
+      alertas.push({
+        tipo: "Radiação solar elevada",
+        mensagem: `Foi registrada radiação solar máxima de ${formatarNumero(
+          resumo.radiacaoSolarMaxima
+        )} W/m².`
       });
     }
 
@@ -363,6 +382,16 @@ function CentroAnalises() {
               <span>Pressão média</span>
               <strong>{formatarNumero(resumo.pressaoMedia)} hPa</strong>
             </div>
+
+            <div className="card">
+              <span>Radiação solar média</span>
+              <strong>{formatarNumero(resumo.radiacaoSolarMedia)} W/m²</strong>
+            </div>
+
+            <div className="card">
+              <span>Maior radiação solar</span>
+              <strong>{formatarNumero(resumo.radiacaoSolarMaxima)} W/m²</strong>
+            </div>
           </div>
 
           {alertas.length > 0 && (
@@ -472,6 +501,32 @@ function CentroAnalises() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+
+            <div className="chart-card">
+              <h3>
+                <Sun size={22} />
+                Radiação Solar
+              </h3>
+
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={dadosGrafico}>
+                  <Line
+                    type="monotone"
+                    dataKey="radiacaoSolar"
+                    strokeWidth={3}
+                  />
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="data" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value) => [`${value} W/m²`, "Radiação solar"]}
+                    labelFormatter={(_, payload) =>
+                      payload?.[0]?.payload?.dataCompleta || ""
+                    }
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           <div className="analysis-table-section">
@@ -487,6 +542,7 @@ function CentroAnalises() {
                     <th>Pressão</th>
                     <th>Vento</th>
                     <th>Chuva</th>
+                    <th>Radiação Solar</th>
                     <th>Origem</th>
                   </tr>
                 </thead>
@@ -500,13 +556,14 @@ function CentroAnalises() {
                       <td>{formatarNumero(registro.pressao)} hPa</td>
                       <td>{formatarNumero(registro.vento_velocidade)} km/h</td>
                       <td>{formatarNumero(registro.precipitacao)} mm</td>
+                      <td>{formatarNumero(registro.radiacao_solar)} W/m²</td>
                       <td>{registro.origem || "--"}</td>
                     </tr>
                   ))}
 
                   {registros.length === 0 && (
                     <tr>
-                      <td colSpan="7">
+                      <td colSpan="8">
                         Nenhum registro encontrado para o período selecionado.
                       </td>
                     </tr>

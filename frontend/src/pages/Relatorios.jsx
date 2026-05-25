@@ -4,13 +4,13 @@ import {
   FileText,
   Download,
   Search,
-  CloudSun,
   Droplets,
   Wind,
   Gauge,
   CloudRain,
   Thermometer,
-  CalendarDays
+  CalendarDays,
+  Sun
 } from "lucide-react";
 import api from "../services/api";
 
@@ -63,7 +63,9 @@ function Relatorios() {
         umidadeMedia: 0,
         ventoMedio: 0,
         pressaoMedia: 0,
-        chuvaTotal: 0
+        chuvaTotal: 0,
+        radiacaoSolarMedia: 0,
+        radiacaoSolarMaxima: 0
       };
     }
 
@@ -72,8 +74,11 @@ function Relatorios() {
     const ventos = registros.map((r) => Number(r.vento_velocidade || 0));
     const pressoes = registros.map((r) => Number(r.pressao || 0));
     const chuvas = registros.map((r) => Number(r.precipitacao || 0));
+    const radiacoes = registros.map((r) => Number(r.radiacao_solar || 0));
 
     const media = (lista) => {
+      if (lista.length === 0) return 0;
+
       const soma = lista.reduce((total, item) => total + item, 0);
       return soma / lista.length;
     };
@@ -90,7 +95,9 @@ function Relatorios() {
       umidadeMedia: media(umidades),
       ventoMedio: media(ventos),
       pressaoMedia: media(pressoes),
-      chuvaTotal: soma(chuvas)
+      chuvaTotal: soma(chuvas),
+      radiacaoSolarMedia: media(radiacoes),
+      radiacaoSolarMaxima: Math.max(...radiacoes)
     };
   }
 
@@ -198,48 +205,52 @@ function Relatorios() {
     doc.text(`Vento médio: ${formatarNumero(resumo.ventoMedio)} km/h`, 14, 148);
     doc.text(`Pressão média: ${formatarNumero(resumo.pressaoMedia)} hPa`, 14, 156);
     doc.text(`Chuva acumulada: ${formatarNumero(resumo.chuvaTotal)} mm`, 14, 164);
+    doc.text(`Radiação solar média: ${formatarNumero(resumo.radiacaoSolarMedia)} W/m²`, 14, 172);
+    doc.text(`Maior radiação solar: ${formatarNumero(resumo.radiacaoSolarMaxima)} W/m²`, 14, 180);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("Registros do período", 14, 181);
+    doc.text("Registros do período", 14, 196);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
 
-    let y = 190;
+    let y = 205;
 
     if (registros.length === 0) {
       doc.text("Nenhum registro encontrado para o período selecionado.", 14, y);
     } else {
       doc.text("Data/Hora", 14, y);
-      doc.text("Temp.", 58, y);
-      doc.text("Umid.", 78, y);
-      doc.text("Vento", 98, y);
-      doc.text("Chuva", 120, y);
-      doc.text("Pressão", 142, y);
+      doc.text("Temp.", 55, y);
+      doc.text("Umid.", 73, y);
+      doc.text("Vento", 91, y);
+      doc.text("Chuva", 112, y);
+      doc.text("Pressão", 133, y);
+      doc.text("Rad.", 160, y);
 
       y += 7;
 
-      registros.slice(0, 26).forEach((registro) => {
+      registros.slice(0, 24).forEach((registro) => {
         if (y > 280) {
           doc.addPage();
           y = 20;
         }
 
         doc.text(formatarData(registro.data_hora), 14, y);
-        doc.text(`${formatarNumero(registro.temperatura)}°C`, 58, y);
-        doc.text(`${formatarNumero(registro.umidade)}%`, 78, y);
-        doc.text(`${formatarNumero(registro.vento_velocidade)}km/h`, 98, y);
-        doc.text(`${formatarNumero(registro.precipitacao)}mm`, 120, y);
-        doc.text(`${formatarNumero(registro.pressao)}hPa`, 142, y);
+        doc.text(`${formatarNumero(registro.temperatura)}°C`, 55, y);
+        doc.text(`${formatarNumero(registro.umidade)}%`, 73, y);
+        doc.text(`${formatarNumero(registro.vento_velocidade)}km/h`, 91, y);
+        doc.text(`${formatarNumero(registro.precipitacao)}mm`, 112, y);
+        doc.text(`${formatarNumero(registro.pressao)}hPa`, 133, y);
+        doc.text(`${formatarNumero(registro.radiacao_solar)}W/m²`, 160, y);
 
         y += 7;
       });
 
-      if (registros.length > 26) {
+      if (registros.length > 24) {
         y += 5;
         doc.text(
-          `Observação: o PDF exibiu os primeiros 26 registros. O CSV contém todos os ${registros.length} registros.`,
+          `Observação: o PDF exibiu os primeiros 24 registros. O CSV contém todos os ${registros.length} registros.`,
           14,
           y,
           { maxWidth: 180 }
@@ -283,6 +294,8 @@ function Relatorios() {
       ["Vento médio", `${formatarNumero(resumo.ventoMedio)} km/h`],
       ["Pressão média", `${formatarNumero(resumo.pressaoMedia)} hPa`],
       ["Chuva acumulada", `${formatarNumero(resumo.chuvaTotal)} mm`],
+      ["Radiação solar média", `${formatarNumero(resumo.radiacaoSolarMedia)} W/m²`],
+      ["Maior radiação solar", `${formatarNumero(resumo.radiacaoSolarMaxima)} W/m²`],
       [],
       [
         "Data/Hora",
@@ -292,6 +305,7 @@ function Relatorios() {
         "Vento",
         "Direção do vento",
         "Precipitação",
+        "Radiação solar",
         "Origem",
         "Observação"
       ],
@@ -303,6 +317,7 @@ function Relatorios() {
         `${formatarNumero(registro.vento_velocidade)} km/h`,
         `${formatarNumero(registro.vento_direcao)}°`,
         `${formatarNumero(registro.precipitacao)} mm`,
+        `${formatarNumero(registro.radiacao_solar)} W/m²`,
         registro.origem || "",
         registro.observacao || ""
       ])
@@ -454,6 +469,13 @@ function Relatorios() {
               <span>Vento médio</span>
               <strong>{formatarNumero(relatorio.resumo.ventoMedio)} km/h</strong>
             </div>
+
+            <div className="card">
+              <span>Radiação solar média</span>
+              <strong>
+                {formatarNumero(relatorio.resumo.radiacaoSolarMedia)} W/m²
+              </strong>
+            </div>
           </div>
 
           <div className="report-details-grid">
@@ -504,6 +526,16 @@ function Relatorios() {
             </div>
 
             <div className="report-detail-item">
+              <Sun size={22} />
+              <div>
+                <span>Maior radiação solar</span>
+                <strong>
+                  {formatarNumero(relatorio.resumo.radiacaoSolarMaxima)} W/m²
+                </strong>
+              </div>
+            </div>
+
+            <div className="report-detail-item">
               <CalendarDays size={22} />
               <div>
                 <span>Período</span>
@@ -527,6 +559,7 @@ function Relatorios() {
                     <th>Pressão</th>
                     <th>Vento</th>
                     <th>Chuva</th>
+                    <th>Radiação Solar</th>
                     <th>Origem</th>
                   </tr>
                 </thead>
@@ -540,13 +573,14 @@ function Relatorios() {
                       <td>{formatarNumero(registro.pressao)} hPa</td>
                       <td>{formatarNumero(registro.vento_velocidade)} km/h</td>
                       <td>{formatarNumero(registro.precipitacao)} mm</td>
+                      <td>{formatarNumero(registro.radiacao_solar)} W/m²</td>
                       <td>{registro.origem || "--"}</td>
                     </tr>
                   ))}
 
                   {relatorio.registros.length === 0 && (
                     <tr>
-                      <td colSpan="7">
+                      <td colSpan="8">
                         Nenhum registro encontrado para esse local nesse
                         período.
                       </td>

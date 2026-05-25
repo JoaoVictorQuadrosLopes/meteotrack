@@ -1,5 +1,28 @@
 const axios = require("axios");
 
+function encontrarValorHorarioMaisProximo(hourly, nomeCampo) {
+  if (!hourly || !hourly.time || !hourly[nomeCampo]) {
+    return 0;
+  }
+
+  const agora = new Date();
+
+  let menorDiferenca = Infinity;
+  let indiceMaisProximo = 0;
+
+  hourly.time.forEach((horario, index) => {
+    const dataHorario = new Date(horario);
+    const diferenca = Math.abs(agora - dataHorario);
+
+    if (diferenca < menorDiferenca) {
+      menorDiferenca = diferenca;
+      indiceMaisProximo = index;
+    }
+  });
+
+  return Number(hourly[nomeCampo][indiceMaisProximo] || 0);
+}
+
 async function buscarClimaAtual(latitude, longitude) {
   const url = "https://api.open-meteo.com/v1/forecast";
 
@@ -17,11 +40,28 @@ async function buscarClimaAtual(latitude, longitude) {
         "wind_speed_10m",
         "wind_direction_10m"
       ].join(","),
+      hourly: [
+        "shortwave_radiation"
+      ].join(","),
+      forecast_days: 1,
       timezone: "America/Sao_Paulo"
     }
   });
 
-  return response.data;
+  const dados = response.data;
+  const radiacaoSolarAtual = encontrarValorHorarioMaisProximo(
+    dados.hourly,
+    "shortwave_radiation"
+  );
+
+  return {
+    ...dados,
+    current: {
+      ...(dados.current || {}),
+      shortwave_radiation: radiacaoSolarAtual,
+      radiacao_solar: radiacaoSolarAtual
+    }
+  };
 }
 
 async function buscarPrevisaoHoraria(latitude, longitude) {
@@ -36,7 +76,8 @@ async function buscarPrevisaoHoraria(latitude, longitude) {
         "relative_humidity_2m",
         "precipitation",
         "pressure_msl",
-        "wind_speed_10m"
+        "wind_speed_10m",
+        "shortwave_radiation"
       ].join(","),
       forecast_days: 3,
       timezone: "America/Sao_Paulo"
@@ -46,20 +87,6 @@ async function buscarPrevisaoHoraria(latitude, longitude) {
   return response.data;
 }
 
-async function buscarCoordenadasPorCidade(nomeCidade) {
-  const url = "https://geocoding-api.open-meteo.com/v1/search";
-
-  const response = await axios.get(url, {
-    params: {
-      name: nomeCidade,
-      count: 5,
-      language: "pt",
-      format: "json"
-    }
-  });
-
-  return response.data;
-}
 async function buscarCoordenadasPorCidade(nomeCidade) {
   const url = "https://nominatim.openstreetmap.org/search";
 

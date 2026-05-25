@@ -10,7 +10,8 @@ import {
   Thermometer,
   CloudRain,
   Wind,
-  Droplets
+  Droplets,
+  Sun
 } from "lucide-react";
 import api from "../services/api";
 
@@ -148,6 +149,18 @@ function RegistrosMeteorologicos() {
     return numero.toFixed(casas);
   }
 
+  function formatarOrigem(origem) {
+    const nomes = {
+      Estacao_local: "Estação Local",
+      estacao_local: "Estação Local",
+      api: "Cidade Monitorada",
+      api_automatica: "Coleta Automática",
+      manual: "Manual"
+    };
+
+    return nomes[origem] || origem || "--";
+  }
+
   function calcularResumo() {
     if (!registros || registros.length === 0) {
       return {
@@ -155,7 +168,8 @@ function RegistrosMeteorologicos() {
         temperaturaMedia: "--",
         umidadeMedia: "--",
         chuvaTotal: "--",
-        ventoMedio: "--"
+        ventoMedio: "--",
+        radiacaoSolarMedia: "--"
       };
     }
 
@@ -173,6 +187,10 @@ function RegistrosMeteorologicos() {
 
     const ventos = registros
       .map((registro) => Number(registro.vento_velocidade))
+      .filter((valor) => !Number.isNaN(valor));
+
+    const radiacoes = registros
+      .map((registro) => Number(registro.radiacao_solar))
       .filter((valor) => !Number.isNaN(valor));
 
     const media = (lista) => {
@@ -193,7 +211,8 @@ function RegistrosMeteorologicos() {
       temperaturaMedia: media(temperaturas),
       umidadeMedia: media(umidades),
       chuvaTotal: soma(chuvas),
-      ventoMedio: media(ventos)
+      ventoMedio: media(ventos),
+      radiacaoSolarMedia: media(radiacoes)
     };
   }
 
@@ -215,6 +234,7 @@ function RegistrosMeteorologicos() {
         "Vento",
         "Direção do vento",
         "Chuva",
+        "Radiação solar",
         "Origem",
         "Observação"
       ],
@@ -229,7 +249,8 @@ function RegistrosMeteorologicos() {
         `${formatarNumero(registro.vento_velocidade)} km/h`,
         `${formatarNumero(registro.vento_direcao)}°`,
         `${formatarNumero(registro.precipitacao)} mm`,
-        registro.origem || "",
+        `${formatarNumero(registro.radiacao_solar)} W/m²`,
+        formatarOrigem(registro.origem),
         registro.observacao || ""
       ])
     ];
@@ -391,6 +412,15 @@ function RegistrosMeteorologicos() {
             {resumo.ventoMedio === "--" ? "--" : `${resumo.ventoMedio} km/h`}
           </strong>
         </div>
+
+        <div className="card">
+          <span>Radiação solar média</span>
+          <strong>
+            {resumo.radiacaoSolarMedia === "--"
+              ? "--"
+              : `${resumo.radiacaoSolarMedia} W/m²`}
+          </strong>
+        </div>
       </div>
 
       <div className="records-summary-grid">
@@ -435,6 +465,18 @@ function RegistrosMeteorologicos() {
             </strong>
           </div>
         </div>
+
+        <div className="records-summary-card">
+          <Sun size={24} />
+          <div>
+            <span>Radiação solar média</span>
+            <strong>
+              {resumo.radiacaoSolarMedia === "--"
+                ? "--"
+                : `${resumo.radiacaoSolarMedia} W/m²`}
+            </strong>
+          </div>
+        </div>
       </div>
 
       {carregando ? (
@@ -454,6 +496,7 @@ function RegistrosMeteorologicos() {
                 <th>Pressão</th>
                 <th>Vento</th>
                 <th>Chuva</th>
+                <th>Radiação Solar</th>
                 <th>Origem</th>
                 <th>Ações</th>
               </tr>
@@ -470,9 +513,10 @@ function RegistrosMeteorologicos() {
                   <td>{formatarNumero(registro.pressao)} hPa</td>
                   <td>{formatarNumero(registro.vento_velocidade)} km/h</td>
                   <td>{formatarNumero(registro.precipitacao)} mm</td>
+                  <td>{formatarNumero(registro.radiacao_solar)} W/m²</td>
                   <td>
                     <span className={`origin-badge origin-${registro.origem}`}>
-                      {registro.origem || "--"}
+                      {formatarOrigem(registro.origem)}
                     </span>
                   </td>
                   <td>
@@ -490,7 +534,7 @@ function RegistrosMeteorologicos() {
 
               {registros.length === 0 && (
                 <tr>
-                  <td colSpan="10">
+                  <td colSpan="11">
                     Nenhum registro encontrado para os filtros selecionados.
                   </td>
                 </tr>

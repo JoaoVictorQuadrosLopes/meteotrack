@@ -19,7 +19,8 @@ import {
   MapPin,
   Search,
   Thermometer,
-  Navigation
+  Navigation,
+  Sun
 } from "lucide-react";
 
 import api from "../services/api";
@@ -88,13 +89,9 @@ function MoverParaLocal({ local }) {
   useEffect(() => {
     if (!local) return;
 
-    map.flyTo(
-      [Number(local.latitude), Number(local.longitude)],
-      10,
-      {
-        duration: 1.2
-      }
-    );
+    map.flyTo([Number(local.latitude), Number(local.longitude)], 10, {
+      duration: 1.2
+    });
   }, [local, map]);
 
   return null;
@@ -107,6 +104,36 @@ function MapaMeteorologico() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
+  function obterRadiacaoSolar(clima) {
+  const valor =
+    clima?.shortwave_radiation ??
+    clima?.radiacao_solar ??
+    clima?.solar_radiation ??
+    0;
+
+  return Number(valor);
+}
+
+function obterRadiacaoSolar(clima) {
+  const valor =
+    clima?.shortwave_radiation ??
+    clima?.radiacao_solar ??
+    clima?.solar_radiation ??
+    0;
+
+  return Number(valor);
+}
+
+  function formatarNumero(valor, casas = 1) {
+    const numero = Number(valor);
+
+    if (Number.isNaN(numero)) {
+      return "--";
+    }
+
+    return numero.toFixed(casas);
+  }
+
   async function carregarMapa() {
     try {
       setCarregando(true);
@@ -118,18 +145,38 @@ function MapaMeteorologico() {
       const locaisComClima = await Promise.all(
         locaisCadastrados.map(async (local) => {
           try {
-            const responseClima = await api.get("/weather/atual", {
-              params: {
-                latitude: local.latitude,
-                longitude: local.longitude
-              }
-            });
+const responseClima = await api.get("/weather/atual", {
+  params: {
+    latitude: local.latitude,
+    longitude: local.longitude
+  }
+});
 
-            return {
-              ...local,
-              clima: responseClima.data.current,
-              erroClima: false
-            };
+const responseRegistros = await api.get("/registros", {
+  params: {
+    local_id: local.id
+  }
+});
+
+const ultimoRegistro = responseRegistros.data?.[0];
+
+const climaAtual = responseClima.data.current || {};
+
+const radiacaoSolar =
+  climaAtual.shortwave_radiation ??
+  climaAtual.radiacao_solar ??
+  ultimoRegistro?.radiacao_solar ??
+  0;
+
+return {
+  ...local,
+  clima: {
+    ...climaAtual,
+    shortwave_radiation: radiacaoSolar,
+    radiacao_solar: radiacaoSolar
+  },
+  erroClima: false
+};
           } catch (error) {
             console.error("Erro ao buscar clima:", error);
 
@@ -189,7 +236,9 @@ function MapaMeteorologico() {
       return {
         maisQuente: "--",
         maisFrio: "--",
-        mediaTemperatura: "--"
+        mediaTemperatura: "--",
+        mediaRadiacaoSolar: "--",
+        maiorRadiacaoSolar: "--"
       };
     }
 
@@ -197,16 +246,29 @@ function MapaMeteorologico() {
       Number(local.clima.temperature_2m || 0)
     );
 
+    const radiacoes = locaisValidos
+      .map((local) => obterRadiacaoSolar(local.clima))
+      .filter((valor) => !Number.isNaN(valor));
+
     const maior = Math.max(...temperaturas);
     const menor = Math.min(...temperaturas);
 
     const soma = temperaturas.reduce((total, item) => total + item, 0);
     const media = soma / temperaturas.length;
 
+    const mediaRadiacao =
+      radiacoes.length > 0
+        ? radiacoes.reduce((total, item) => total + item, 0) / radiacoes.length
+        : 0;
+
+    const maiorRadiacao = radiacoes.length > 0 ? Math.max(...radiacoes) : 0;
+
     return {
       maisQuente: maior.toFixed(1),
       maisFrio: menor.toFixed(1),
-      mediaTemperatura: media.toFixed(1)
+      mediaTemperatura: media.toFixed(1),
+      mediaRadiacaoSolar: mediaRadiacao.toFixed(1),
+      maiorRadiacaoSolar: maiorRadiacao.toFixed(1)
     };
   }, [locais]);
 
@@ -253,6 +315,16 @@ function MapaMeteorologico() {
           <span>Local mais frio</span>
           <strong>{resumoMapa.maisFrio}°C</strong>
         </div>
+
+        <div className="card">
+          <span>Radiação solar média</span>
+          <strong>{resumoMapa.mediaRadiacaoSolar} W/m²</strong>
+        </div>
+
+        <div className="card">
+          <span>Maior radiação solar</span>
+          <strong>{resumoMapa.maiorRadiacaoSolar} W/m²</strong>
+        </div>
       </div>
 
       {carregando ? (
@@ -277,7 +349,7 @@ function MapaMeteorologico() {
               className="professional-weather-map"
             >
               <TileLayer
-                attribution='&copy; OpenStreetMap'
+                attribution="&copy; OpenStreetMap"
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
 
@@ -286,6 +358,7 @@ function MapaMeteorologico() {
 
               {locais.map((local) => {
                 const temperatura = Number(local.clima?.temperature_2m || 0);
+                const radiacaoSolar = obterRadiacaoSolar(local.clima);
 
                 return (
                   <Marker
@@ -306,9 +379,22 @@ function MapaMeteorologico() {
                           {local.cidade}
                           {local.estado ? ` - ${local.estado}` : ""}
                         </span>
-                        <p>Temperatura: {local.clima?.temperature_2m ?? "--"}°C</p>
-                        <p>Umidade: {local.clima?.relative_humidity_2m ?? "--"}%</p>
-                        <p>Vento: {local.clima?.wind_speed_10m ?? "--"} km/h</p>
+                        <p>
+                          Temperatura: {local.clima?.temperature_2m ?? "--"}°C
+                        </p>
+                        <p>
+                          Umidade:{" "}
+                          {local.clima?.relative_humidity_2m ?? "--"}%
+                        </p>
+                        <p>
+                          Vento: {local.clima?.wind_speed_10m ?? "--"} km/h
+                        </p>
+                        <p>
+                          Radiação solar:{" "}
+                          {local.clima
+                            ? `${formatarNumero(radiacaoSolar)} W/m²`
+                            : "--"}
+                        </p>
                       </div>
                     </Popup>
                   </Marker>
@@ -435,6 +521,18 @@ function MapaMeteorologico() {
                             {localSelecionado.clima?.precipitation ?? "--"} mm
                           </strong>
                         </div>
+
+                        <div>
+                          <Sun size={18} />
+                          <span>Radiação solar</span>
+                          <strong>
+                            {localSelecionado.clima
+                              ? `${formatarNumero(
+                                  obterRadiacaoSolar(localSelecionado.clima)
+                                )} W/m²`
+                              : "--"}
+                          </strong>
+                        </div>
                       </div>
                     </>
                   )}
@@ -467,6 +565,13 @@ function MapaMeteorologico() {
                   <div className="map-location-temp">
                     <Navigation size={15} />
                     {local.clima?.temperature_2m ?? "--"}°C
+                  </div>
+
+                  <div className="map-location-temp">
+                    <Sun size={15} />
+                    {local.clima
+                      ? `${formatarNumero(obterRadiacaoSolar(local.clima))} W/m²`
+                      : "--"}
                   </div>
                 </button>
               ))}

@@ -41,7 +41,7 @@ async function coletarRegistrosAutomaticos() {
           local.longitude
         );
 
-        const climaAtual = dadosClima.current;
+        const climaAtual = dadosClima.current || {};
 
         const novoRegistro = {
           local_id: localId,
@@ -56,6 +56,7 @@ async function coletarRegistrosAutomaticos() {
           precipitacao: Number(climaAtual.precipitation || 0),
           nebulosidade: Number(climaAtual.cloud_cover || 0),
           visibilidade: Number(climaAtual.visibility || 0),
+          radiacao_solar: Number(climaAtual.shortwave_radiation || 0),
 
           origem: "api_automatica",
           observacao: `Registro automático coletado para ${local.nome}.`,
