@@ -19,10 +19,14 @@ import {
   Wind,
   CloudRain,
   CalendarDays,
-  Sun
+  Sun,
+  Zap,
+  AlertTriangle,
+  Compass
 } from "lucide-react";
 
 import api from "../services/api";
+import { calcularAnaliseTecnica } from "../utils/analiseTecnica";
 
 function CentroAnalises() {
   const [locais, setLocais] = useState([]);
@@ -76,71 +80,6 @@ function CentroAnalises() {
     return numero.toFixed(casas);
   }
 
-  function calcularResumo(registrosRecebidos) {
-    if (!registrosRecebidos || registrosRecebidos.length === 0) {
-      return {
-        quantidade: 0,
-        temperaturaMedia: 0,
-        temperaturaMaxima: 0,
-        temperaturaMinima: 0,
-        umidadeMedia: 0,
-        ventoMedio: 0,
-        pressaoMedia: 0,
-        chuvaTotal: 0,
-        radiacaoSolarMedia: 0,
-        radiacaoSolarMaxima: 0
-      };
-    }
-
-    const temperaturas = registrosRecebidos.map((r) =>
-      Number(r.temperatura || 0)
-    );
-
-    const umidades = registrosRecebidos.map((r) =>
-      Number(r.umidade || 0)
-    );
-
-    const ventos = registrosRecebidos.map((r) =>
-      Number(r.vento_velocidade || 0)
-    );
-
-    const pressoes = registrosRecebidos.map((r) =>
-      Number(r.pressao || 0)
-    );
-
-    const chuvas = registrosRecebidos.map((r) =>
-      Number(r.precipitacao || 0)
-    );
-
-    const radiacoes = registrosRecebidos.map((r) =>
-      Number(r.radiacao_solar || 0)
-    );
-
-    const media = (lista) => {
-      if (lista.length === 0) return 0;
-
-      const soma = lista.reduce((total, item) => total + item, 0);
-      return soma / lista.length;
-    };
-
-    const soma = (lista) => {
-      return lista.reduce((total, item) => total + item, 0);
-    };
-
-    return {
-      quantidade: registrosRecebidos.length,
-      temperaturaMedia: media(temperaturas),
-      temperaturaMaxima: Math.max(...temperaturas),
-      temperaturaMinima: Math.min(...temperaturas),
-      umidadeMedia: media(umidades),
-      ventoMedio: media(ventos),
-      pressaoMedia: media(pressoes),
-      chuvaTotal: soma(chuvas),
-      radiacaoSolarMedia: media(radiacoes),
-      radiacaoSolarMaxima: Math.max(...radiacoes)
-    };
-  }
-
   async function buscarAnalise(e) {
     if (e) e.preventDefault();
 
@@ -158,14 +97,7 @@ function CentroAnalises() {
       setCarregando(true);
       setMensagem("");
 
-      console.log("Local selecionado:", localId);
-      console.log("Coletando novo registro...");
-
-      const coletaResponse = await api.post(`/registros/coletar/${localId}`);
-
-      console.log("Resposta da coleta:", coletaResponse.data);
-
-      console.log("Buscando registros salvos...");
+      await api.post(`/registros/coletar/${localId}`);
 
       const response = await api.get("/registros", {
         params: {
@@ -175,23 +107,17 @@ function CentroAnalises() {
         }
       });
 
-      console.log("Registros encontrados:", response.data);
-
-      const dados = response.data;
-
-      const dadosOrdenados = [...dados].sort((a, b) => {
+      const dadosOrdenados = [...response.data].sort((a, b) => {
         return new Date(a.data_hora) - new Date(b.data_hora);
       });
 
       setRegistros(dadosOrdenados);
-      setResumo(calcularResumo(dadosOrdenados));
+      setResumo(calcularAnaliseTecnica(dadosOrdenados));
 
       if (dadosOrdenados.length === 0) {
-        setMensagem(
-          "Registro coletado, mas nenhum dado foi encontrado dentro do período selecionado. Verifique as datas."
-        );
+        setMensagem("Nenhum registro encontrado no período selecionado.");
       } else {
-        setMensagem("Análise gerada e registro salvo com sucesso.");
+        setMensagem("Análise técnica gerada com sucesso.");
       }
     } catch (error) {
       console.error("Erro ao buscar análise:", error);
@@ -221,61 +147,19 @@ function CentroAnalises() {
     }));
   }
 
-  function verificarAlertas() {
-    if (!resumo || registros.length === 0) return [];
+  function montarDadosVento() {
+    if (!resumo?.ventoPredominante?.distribuicao) return [];
 
-    const alertas = [];
-
-    if (resumo.temperaturaMaxima >= 35) {
-      alertas.push({
-        tipo: "Temperatura elevada",
-        mensagem: `Foi registrada temperatura máxima de ${formatarNumero(
-          resumo.temperaturaMaxima
-        )}°C.`
-      });
-    }
-
-    if (resumo.umidadeMedia <= 30) {
-      alertas.push({
-        tipo: "Umidade baixa",
-        mensagem: `A umidade média ficou em ${formatarNumero(
-          resumo.umidadeMedia
-        )}%.`
-      });
-    }
-
-    if (resumo.ventoMedio >= 40) {
-      alertas.push({
-        tipo: "Vento forte",
-        mensagem: `A velocidade média do vento foi de ${formatarNumero(
-          resumo.ventoMedio
-        )} km/h.`
-      });
-    }
-
-    if (resumo.chuvaTotal >= 50) {
-      alertas.push({
-        tipo: "Chuva acumulada elevada",
-        mensagem: `O total de chuva no período foi de ${formatarNumero(
-          resumo.chuvaTotal
-        )} mm.`
-      });
-    }
-
-    if (resumo.radiacaoSolarMaxima >= 800) {
-      alertas.push({
-        tipo: "Radiação solar elevada",
-        mensagem: `Foi registrada radiação solar máxima de ${formatarNumero(
-          resumo.radiacaoSolarMaxima
-        )} W/m².`
-      });
-    }
-
-    return alertas;
+    return Object.entries(resumo.ventoPredominante.distribuicao).map(
+      ([direcao, quantidade]) => ({
+        direcao,
+        quantidade
+      })
+    );
   }
 
   const dadosGrafico = montarDadosGrafico();
-  const alertas = verificarAlertas();
+  const dadosVento = montarDadosVento();
 
   useEffect(() => {
     carregarLocais();
@@ -287,7 +171,8 @@ function CentroAnalises() {
         <div>
           <h1>Centro de Análises</h1>
           <p className="page-description">
-            Analise os registros meteorológicos salvos por local e período.
+            Analise registros meteorológicos, potencial solar, alertas críticos
+            e vento predominante.
           </p>
         </div>
       </div>
@@ -297,7 +182,7 @@ function CentroAnalises() {
       <form className="analysis-filter-card" onSubmit={buscarAnalise}>
         <div className="form-header">
           <div>
-            <h3>Filtros da análise</h3>
+            <h3>Filtros da análise técnica</h3>
             <p>Escolha um local e um período para visualizar os indicadores.</p>
           </div>
 
@@ -354,16 +239,6 @@ function CentroAnalises() {
             </div>
 
             <div className="card">
-              <span>Maior temperatura</span>
-              <strong>{formatarNumero(resumo.temperaturaMaxima)}°C</strong>
-            </div>
-
-            <div className="card">
-              <span>Menor temperatura</span>
-              <strong>{formatarNumero(resumo.temperaturaMinima)}°C</strong>
-            </div>
-
-            <div className="card">
               <span>Umidade média</span>
               <strong>{formatarNumero(resumo.umidadeMedia)}%</strong>
             </div>
@@ -392,17 +267,79 @@ function CentroAnalises() {
               <span>Maior radiação solar</span>
               <strong>{formatarNumero(resumo.radiacaoSolarMaxima)} W/m²</strong>
             </div>
+
+            <div className="card">
+              <span>Potencial solar</span>
+              <strong>{resumo.potencialSolar}</strong>
+            </div>
+
+            <div className="card">
+              <span>Energia estimada</span>
+              <strong>{formatarNumero(resumo.energiaSolarEstimada, 2)} kWh/dia</strong>
+            </div>
+
+            <div className="card">
+              <span>Vento predominante</span>
+              <strong>{resumo.ventoPredominante.direcao}</strong>
+            </div>
+
+            <div className="card">
+              <span>Alertas críticos</span>
+              <strong>{resumo.alertas.length}</strong>
+            </div>
           </div>
 
-          {alertas.length > 0 && (
+          <div className="records-summary-grid">
+            <div className="records-summary-card">
+              <Sun size={24} />
+              <div>
+                <span>Análise solar</span>
+                <strong>{resumo.potencialSolar}</strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <Zap size={24} />
+              <div>
+                <span>Estimativa fotovoltaica</span>
+                <strong>
+                  {formatarNumero(resumo.energiaSolarEstimada, 2)} kWh/dia
+                </strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <Compass size={24} />
+              <div>
+                <span>Vento predominante</span>
+                <strong>
+                  {resumo.ventoPredominante.direcao} (
+                  {formatarNumero(resumo.ventoPredominante.percentual)}%)
+                </strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <AlertTriangle size={24} />
+              <div>
+                <span>Faixas críticas</span>
+                <strong>{resumo.alertas.length} alerta(s)</strong>
+              </div>
+            </div>
+          </div>
+
+          {resumo.alertas.length > 0 && (
             <div className="analysis-alerts">
               <h2>Alertas identificados</h2>
 
               <div className="analysis-alerts-grid">
-                {alertas.map((alerta, index) => (
+                {resumo.alertas.map((alerta, index) => (
                   <div className="analysis-alert-card" key={index}>
                     <strong>{alerta.tipo}</strong>
                     <p>{alerta.mensagem}</p>
+                    <span>
+                      Nível: {alerta.nivel} | Limite: {alerta.limite}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -418,11 +355,7 @@ function CentroAnalises() {
 
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={dadosGrafico}>
-                  <Line
-                    type="monotone"
-                    dataKey="temperatura"
-                    strokeWidth={3}
-                  />
+                  <Line type="monotone" dataKey="temperatura" strokeWidth={3} />
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="data" />
                   <YAxis />
@@ -527,49 +460,24 @@ function CentroAnalises() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          </div>
 
-          <div className="analysis-table-section">
-            <h2>Registros utilizados na análise</h2>
+            <div className="chart-card">
+              <h3>
+                <Compass size={22} />
+                Distribuição do Vento
+              </h3>
 
-            <div className="table-card">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Data/Hora</th>
-                    <th>Temperatura</th>
-                    <th>Umidade</th>
-                    <th>Pressão</th>
-                    <th>Vento</th>
-                    <th>Chuva</th>
-                    <th>Radiação Solar</th>
-                    <th>Origem</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {registros.map((registro) => (
-                    <tr key={registro.id}>
-                      <td>{formatarDataCompleta(registro.data_hora)}</td>
-                      <td>{formatarNumero(registro.temperatura)}°C</td>
-                      <td>{formatarNumero(registro.umidade)}%</td>
-                      <td>{formatarNumero(registro.pressao)} hPa</td>
-                      <td>{formatarNumero(registro.vento_velocidade)} km/h</td>
-                      <td>{formatarNumero(registro.precipitacao)} mm</td>
-                      <td>{formatarNumero(registro.radiacao_solar)} W/m²</td>
-                      <td>{registro.origem || "--"}</td>
-                    </tr>
-                  ))}
-
-                  {registros.length === 0 && (
-                    <tr>
-                      <td colSpan="8">
-                        Nenhum registro encontrado para o período selecionado.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={dadosVento}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="direcao" />
+                  <YAxis />
+                  <Tooltip
+                    formatter={(value) => [`${value}`, "Ocorrências"]}
+                  />
+                  <Bar dataKey="quantidade" />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </>
@@ -580,8 +488,8 @@ function CentroAnalises() {
           <CalendarDays size={42} />
           <h3>Nenhuma análise gerada</h3>
           <p>
-            Selecione um local e um período para visualizar gráficos e
-            indicadores meteorológicos.
+            Selecione um local e um período para visualizar gráficos, alertas,
+            potencial solar e vento predominante.
           </p>
         </div>
       )}

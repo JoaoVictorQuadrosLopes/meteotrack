@@ -10,9 +10,13 @@ import {
   CloudRain,
   Thermometer,
   CalendarDays,
-  Sun
+  Sun,
+  Zap,
+  Compass,
+  AlertTriangle
 } from "lucide-react";
 import api from "../services/api";
+import { calcularAnaliseTecnica } from "../utils/analiseTecnica";
 
 function Relatorios() {
   const [locais, setLocais] = useState([]);
@@ -53,54 +57,6 @@ function Relatorios() {
     return numero.toFixed(casas);
   }
 
-  function calcularResumo(registros) {
-    if (!registros || registros.length === 0) {
-      return {
-        quantidade: 0,
-        temperaturaMedia: 0,
-        temperaturaMaxima: 0,
-        temperaturaMinima: 0,
-        umidadeMedia: 0,
-        ventoMedio: 0,
-        pressaoMedia: 0,
-        chuvaTotal: 0,
-        radiacaoSolarMedia: 0,
-        radiacaoSolarMaxima: 0
-      };
-    }
-
-    const temperaturas = registros.map((r) => Number(r.temperatura || 0));
-    const umidades = registros.map((r) => Number(r.umidade || 0));
-    const ventos = registros.map((r) => Number(r.vento_velocidade || 0));
-    const pressoes = registros.map((r) => Number(r.pressao || 0));
-    const chuvas = registros.map((r) => Number(r.precipitacao || 0));
-    const radiacoes = registros.map((r) => Number(r.radiacao_solar || 0));
-
-    const media = (lista) => {
-      if (lista.length === 0) return 0;
-
-      const soma = lista.reduce((total, item) => total + item, 0);
-      return soma / lista.length;
-    };
-
-    const soma = (lista) => {
-      return lista.reduce((total, item) => total + item, 0);
-    };
-
-    return {
-      quantidade: registros.length,
-      temperaturaMedia: media(temperaturas),
-      temperaturaMaxima: Math.max(...temperaturas),
-      temperaturaMinima: Math.min(...temperaturas),
-      umidadeMedia: media(umidades),
-      ventoMedio: media(ventos),
-      pressaoMedia: media(pressoes),
-      chuvaTotal: soma(chuvas),
-      radiacaoSolarMedia: media(radiacoes),
-      radiacaoSolarMaxima: Math.max(...radiacoes)
-    };
-  }
-
   async function gerarRelatorio(e) {
     e.preventDefault();
 
@@ -129,10 +85,10 @@ function Relatorios() {
       });
 
       const registros = responseRegistros.data;
-      const resumo = calcularResumo(registros);
+      const resumo = calcularAnaliseTecnica(registros);
 
       const dadosRelatorio = {
-        titulo: "Relatório Meteorológico por Período",
+        titulo: "Relatório Técnico Meteorológico",
         tipo: tipoRelatorio,
         local: localSelecionado,
         dataInicio,
@@ -149,7 +105,7 @@ function Relatorios() {
           "Relatório gerado, mas não existem registros nesse período para o local selecionado."
         );
       } else {
-        setMensagem("Relatório gerado com sucesso.");
+        setMensagem("Relatório técnico gerado com sucesso.");
       }
     } catch (error) {
       console.error("Erro ao gerar relatório:", error);
@@ -173,7 +129,7 @@ function Relatorios() {
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text("MeteoTrack - Relatório Meteorológico", 14, 18);
+    doc.text("MeteoTrack - Relatorio Tecnico Meteorologico", 14, 18);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
@@ -188,77 +144,107 @@ function Relatorios() {
     doc.text(`Nome: ${local.nome}`, 14, 51);
     doc.text(`Cidade: ${local.cidade}`, 14, 59);
     doc.text(`Estado: ${local.estado || "-"}`, 14, 67);
-    doc.text(`País: ${local.pais || "Brasil"}`, 14, 75);
-    doc.text(`Período: ${relatorio.dataInicio} até ${relatorio.dataFim}`, 14, 83);
+    doc.text(`Pais: ${local.pais || "Brasil"}`, 14, 75);
+    doc.text(`Periodo: ${relatorio.dataInicio} ate ${relatorio.dataFim}`, 14, 83);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("Resumo do período", 14, 99);
+    doc.text("Resumo meteorologico", 14, 99);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.text(`Quantidade de registros: ${resumo.quantidade}`, 14, 108);
-    doc.text(`Temperatura média: ${formatarNumero(resumo.temperaturaMedia)} °C`, 14, 116);
-    doc.text(`Maior temperatura: ${formatarNumero(resumo.temperaturaMaxima)} °C`, 14, 124);
-    doc.text(`Menor temperatura: ${formatarNumero(resumo.temperaturaMinima)} °C`, 14, 132);
-    doc.text(`Umidade média: ${formatarNumero(resumo.umidadeMedia)} %`, 14, 140);
-    doc.text(`Vento médio: ${formatarNumero(resumo.ventoMedio)} km/h`, 14, 148);
-    doc.text(`Pressão média: ${formatarNumero(resumo.pressaoMedia)} hPa`, 14, 156);
+    doc.text(`Temperatura media: ${formatarNumero(resumo.temperaturaMedia)} C`, 14, 116);
+    doc.text(`Maior temperatura: ${formatarNumero(resumo.temperaturaMaxima)} C`, 14, 124);
+    doc.text(`Menor temperatura: ${formatarNumero(resumo.temperaturaMinima)} C`, 14, 132);
+    doc.text(`Umidade media: ${formatarNumero(resumo.umidadeMedia)} %`, 14, 140);
+    doc.text(`Vento medio: ${formatarNumero(resumo.ventoMedio)} km/h`, 14, 148);
+    doc.text(`Pressao media: ${formatarNumero(resumo.pressaoMedia)} hPa`, 14, 156);
     doc.text(`Chuva acumulada: ${formatarNumero(resumo.chuvaTotal)} mm`, 14, 164);
-    doc.text(`Radiação solar média: ${formatarNumero(resumo.radiacaoSolarMedia)} W/m²`, 14, 172);
-    doc.text(`Maior radiação solar: ${formatarNumero(resumo.radiacaoSolarMaxima)} W/m²`, 14, 180);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("Registros do período", 14, 196);
+    doc.text("Analise tecnica V2", 14, 180);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Radiacao solar media: ${formatarNumero(resumo.radiacaoSolarMedia)} W/m2`, 14, 189);
+    doc.text(`Maior radiacao solar: ${formatarNumero(resumo.radiacaoSolarMaxima)} W/m2`, 14, 197);
+    doc.text(`Potencial solar: ${resumo.potencialSolar}`, 14, 205);
+    doc.text(`Energia estimada: ${formatarNumero(resumo.energiaSolarEstimada, 2)} kWh/dia`, 14, 213);
+    doc.text(`Vento predominante: ${resumo.ventoPredominante.direcao}`, 14, 221);
+    doc.text(`Frequencia do vento predominante: ${formatarNumero(resumo.ventoPredominante.percentual)} %`, 14, 229);
+    doc.text(`Alertas identificados: ${resumo.alertas.length}`, 14, 237);
+
+    let y = 253;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text("Alertas do periodo", 14, y);
+
+    y += 8;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
 
-    let y = 205;
+    if (resumo.alertas.length === 0) {
+      doc.text("Nenhum alerta critico identificado no periodo.", 14, y);
+      y += 8;
+    } else {
+      resumo.alertas.slice(0, 8).forEach((alerta) => {
+        if (y > 280) {
+          doc.addPage();
+          y = 20;
+        }
+
+        doc.text(`${alerta.tipo} - ${alerta.valor} - ${alerta.nivel}`, 14, y);
+        y += 6;
+      });
+    }
+
+    doc.addPage();
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text("Registros do periodo", 14, 18);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+
+    y = 30;
 
     if (registros.length === 0) {
-      doc.text("Nenhum registro encontrado para o período selecionado.", 14, y);
+      doc.text("Nenhum registro encontrado para o periodo selecionado.", 14, y);
     } else {
       doc.text("Data/Hora", 14, y);
       doc.text("Temp.", 55, y);
       doc.text("Umid.", 73, y);
       doc.text("Vento", 91, y);
       doc.text("Chuva", 112, y);
-      doc.text("Pressão", 133, y);
-      doc.text("Rad.", 160, y);
+      doc.text("Rad.", 133, y);
+      doc.text("Origem", 160, y);
 
       y += 7;
 
-      registros.slice(0, 24).forEach((registro) => {
+      registros.slice(0, 30).forEach((registro) => {
         if (y > 280) {
           doc.addPage();
           y = 20;
         }
 
         doc.text(formatarData(registro.data_hora), 14, y);
-        doc.text(`${formatarNumero(registro.temperatura)}°C`, 55, y);
+        doc.text(`${formatarNumero(registro.temperatura)}C`, 55, y);
         doc.text(`${formatarNumero(registro.umidade)}%`, 73, y);
         doc.text(`${formatarNumero(registro.vento_velocidade)}km/h`, 91, y);
         doc.text(`${formatarNumero(registro.precipitacao)}mm`, 112, y);
-        doc.text(`${formatarNumero(registro.pressao)}hPa`, 133, y);
-        doc.text(`${formatarNumero(registro.radiacao_solar)}W/m²`, 160, y);
+        doc.text(`${formatarNumero(registro.radiacao_solar)}W/m2`, 133, y);
+        doc.text(`${registro.origem || "--"}`, 160, y);
 
         y += 7;
       });
-
-      if (registros.length > 24) {
-        y += 5;
-        doc.text(
-          `Observação: o PDF exibiu os primeiros 24 registros. O CSV contém todos os ${registros.length} registros.`,
-          14,
-          y,
-          { maxWidth: 180 }
-        );
-      }
     }
 
-    const nomeArquivo = `relatorio-${local.cidade || "local"}-${relatorio.dataInicio}-${relatorio.dataFim}.pdf`
+    const nomeArquivo = `relatorio-tecnico-${local.cidade || "local"}-${relatorio.dataInicio}-${relatorio.dataFim}.pdf`
       .toLowerCase()
       .replaceAll(" ", "-");
 
@@ -276,7 +262,7 @@ function Relatorios() {
     const registros = relatorio.registros;
 
     const linhas = [
-      ["Relatório Meteorológico"],
+      ["Relatório Técnico Meteorológico"],
       ["Local", local.nome],
       ["Cidade", local.cidade],
       ["Estado", local.estado || ""],
@@ -296,6 +282,28 @@ function Relatorios() {
       ["Chuva acumulada", `${formatarNumero(resumo.chuvaTotal)} mm`],
       ["Radiação solar média", `${formatarNumero(resumo.radiacaoSolarMedia)} W/m²`],
       ["Maior radiação solar", `${formatarNumero(resumo.radiacaoSolarMaxima)} W/m²`],
+      ["Potencial solar", resumo.potencialSolar],
+      ["Energia estimada", `${formatarNumero(resumo.energiaSolarEstimada, 2)} kWh/dia`],
+      ["Vento predominante", resumo.ventoPredominante.direcao],
+      ["Frequência do vento predominante", `${formatarNumero(resumo.ventoPredominante.percentual)} %`],
+      ["Alertas identificados", resumo.alertas.length],
+      [],
+      ["Alertas"],
+      ["Tipo", "Nível", "Valor", "Limite", "Mensagem", "Data/Hora"],
+      ...resumo.alertas.map((alerta) => [
+        alerta.tipo,
+        alerta.nivel,
+        alerta.valor,
+        alerta.limite,
+        alerta.mensagem,
+        formatarData(alerta.data_hora)
+      ]),
+      [],
+      ["Distribuição dos ventos"],
+      ["Direção", "Quantidade"],
+      ...Object.entries(resumo.ventoPredominante.distribuicao || {}).map(
+        ([direcao, quantidade]) => [direcao, quantidade]
+      ),
       [],
       [
         "Data/Hora",
@@ -333,7 +341,7 @@ function Relatorios() {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = `relatorio-${local.cidade || "local"}-${relatorio.dataInicio}-${relatorio.dataFim}.csv`
+    link.download = `relatorio-tecnico-${local.cidade || "local"}-${relatorio.dataInicio}-${relatorio.dataFim}.csv`
       .toLowerCase()
       .replaceAll(" ", "-");
 
@@ -352,8 +360,8 @@ function Relatorios() {
         <div>
           <h1>Relatórios</h1>
           <p className="page-description">
-            Gere relatórios meteorológicos com base nos registros salvos por
-            local e período.
+            Gere relatórios técnicos com potencial solar, alertas e vento
+            predominante.
           </p>
         </div>
       </div>
@@ -363,7 +371,7 @@ function Relatorios() {
       <form className="report-form-card" onSubmit={gerarRelatorio}>
         <div className="form-header">
           <div>
-            <h3>Configuração do relatório</h3>
+            <h3>Configuração do relatório técnico</h3>
             <p>Escolha o local e o período que deseja analisar.</p>
           </div>
 
@@ -423,7 +431,7 @@ function Relatorios() {
         <div className="report-preview modern-report">
           <div className="report-preview-header">
             <div>
-              <span className="hero-label">Prévia do relatório</span>
+              <span className="hero-label">Prévia do relatório técnico</span>
               <h2>{relatorio.local.nome}</h2>
               <p>
                 {relatorio.local.cidade}
@@ -461,24 +469,80 @@ function Relatorios() {
             </div>
 
             <div className="card">
-              <span>Chuva acumulada</span>
-              <strong>{formatarNumero(relatorio.resumo.chuvaTotal)} mm</strong>
-            </div>
-
-            <div className="card">
-              <span>Vento médio</span>
-              <strong>{formatarNumero(relatorio.resumo.ventoMedio)} km/h</strong>
-            </div>
-
-            <div className="card">
               <span>Radiação solar média</span>
               <strong>
                 {formatarNumero(relatorio.resumo.radiacaoSolarMedia)} W/m²
               </strong>
             </div>
+
+            <div className="card">
+              <span>Potencial solar</span>
+              <strong>{relatorio.resumo.potencialSolar}</strong>
+            </div>
+
+            <div className="card">
+              <span>Energia estimada</span>
+              <strong>
+                {formatarNumero(relatorio.resumo.energiaSolarEstimada, 2)}{" "}
+                kWh/dia
+              </strong>
+            </div>
+
+            <div className="card">
+              <span>Vento predominante</span>
+              <strong>{relatorio.resumo.ventoPredominante.direcao}</strong>
+            </div>
+
+            <div className="card">
+              <span>Alertas</span>
+              <strong>{relatorio.resumo.alertas.length}</strong>
+            </div>
           </div>
 
           <div className="report-details-grid">
+            <div className="report-detail-item">
+              <Sun size={22} />
+              <div>
+                <span>Maior radiação solar</span>
+                <strong>
+                  {formatarNumero(relatorio.resumo.radiacaoSolarMaxima)} W/m²
+                </strong>
+              </div>
+            </div>
+
+            <div className="report-detail-item">
+              <Zap size={22} />
+              <div>
+                <span>Estimativa fotovoltaica</span>
+                <strong>
+                  {formatarNumero(relatorio.resumo.energiaSolarEstimada, 2)}{" "}
+                  kWh/dia
+                </strong>
+              </div>
+            </div>
+
+            <div className="report-detail-item">
+              <Compass size={22} />
+              <div>
+                <span>Vento predominante</span>
+                <strong>
+                  {relatorio.resumo.ventoPredominante.direcao} (
+                  {formatarNumero(
+                    relatorio.resumo.ventoPredominante.percentual
+                  )}
+                  %)
+                </strong>
+              </div>
+            </div>
+
+            <div className="report-detail-item">
+              <AlertTriangle size={22} />
+              <div>
+                <span>Faixas críticas</span>
+                <strong>{relatorio.resumo.alertas.length} alerta(s)</strong>
+              </div>
+            </div>
+
             <div className="report-detail-item">
               <Thermometer size={22} />
               <div>
@@ -490,20 +554,12 @@ function Relatorios() {
             </div>
 
             <div className="report-detail-item">
-              <Thermometer size={22} />
-              <div>
-                <span>Menor temperatura</span>
-                <strong>
-                  {formatarNumero(relatorio.resumo.temperaturaMinima)}°C
-                </strong>
-              </div>
-            </div>
-
-            <div className="report-detail-item">
               <Droplets size={22} />
               <div>
                 <span>Umidade média</span>
-                <strong>{formatarNumero(relatorio.resumo.umidadeMedia)}%</strong>
+                <strong>
+                  {formatarNumero(relatorio.resumo.umidadeMedia)}%
+                </strong>
               </div>
             </div>
 
@@ -521,16 +577,18 @@ function Relatorios() {
               <CloudRain size={22} />
               <div>
                 <span>Chuva acumulada</span>
-                <strong>{formatarNumero(relatorio.resumo.chuvaTotal)} mm</strong>
+                <strong>
+                  {formatarNumero(relatorio.resumo.chuvaTotal)} mm
+                </strong>
               </div>
             </div>
 
             <div className="report-detail-item">
-              <Sun size={22} />
+              <Wind size={22} />
               <div>
-                <span>Maior radiação solar</span>
+                <span>Vento médio</span>
                 <strong>
-                  {formatarNumero(relatorio.resumo.radiacaoSolarMaxima)} W/m²
+                  {formatarNumero(relatorio.resumo.ventoMedio)} km/h
                 </strong>
               </div>
             </div>
@@ -546,6 +604,38 @@ function Relatorios() {
             </div>
           </div>
 
+          {relatorio.resumo.alertas.length > 0 && (
+            <div className="report-table-box">
+              <h3>Alertas encontrados</h3>
+
+              <div className="table-card">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>Nível</th>
+                      <th>Valor</th>
+                      <th>Limite</th>
+                      <th>Mensagem</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {relatorio.resumo.alertas.map((alerta, index) => (
+                      <tr key={index}>
+                        <td>{alerta.tipo}</td>
+                        <td>{alerta.nivel}</td>
+                        <td>{alerta.valor}</td>
+                        <td>{alerta.limite}</td>
+                        <td>{alerta.mensagem}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="report-table-box">
             <h3>Registros encontrados</h3>
 
@@ -558,6 +648,7 @@ function Relatorios() {
                     <th>Umidade</th>
                     <th>Pressão</th>
                     <th>Vento</th>
+                    <th>Direção</th>
                     <th>Chuva</th>
                     <th>Radiação Solar</th>
                     <th>Origem</th>
@@ -572,6 +663,7 @@ function Relatorios() {
                       <td>{formatarNumero(registro.umidade)}%</td>
                       <td>{formatarNumero(registro.pressao)} hPa</td>
                       <td>{formatarNumero(registro.vento_velocidade)} km/h</td>
+                      <td>{formatarNumero(registro.vento_direcao)}°</td>
                       <td>{formatarNumero(registro.precipitacao)} mm</td>
                       <td>{formatarNumero(registro.radiacao_solar)} W/m²</td>
                       <td>{registro.origem || "--"}</td>
@@ -580,7 +672,7 @@ function Relatorios() {
 
                   {relatorio.registros.length === 0 && (
                     <tr>
-                      <td colSpan="8">
+                      <td colSpan="9">
                         Nenhum registro encontrado para esse local nesse
                         período.
                       </td>
