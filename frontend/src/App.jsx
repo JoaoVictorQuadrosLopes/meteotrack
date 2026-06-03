@@ -16,6 +16,7 @@ import EstacoesLocais from "./pages/EstacoesLocais";
 import Login from "./pages/Login";
 import Alertas from "./pages/Alertas";
 import RosaDosVentos from "./pages/RosaDosVentos";
+import ClimaDia from "./pages/ClimaDia";
 
 import { useAuth } from "./contexts/AuthContext";
 
@@ -58,6 +59,7 @@ function App() {
               <Route path="/status" element={<StatusSistema />} />
               <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/local/:id" element={<DetalhesLocal />} />
+              <Route path="/clima-dia" element={<ClimaDia />} />
             </Routes>
           </section>
         </main>

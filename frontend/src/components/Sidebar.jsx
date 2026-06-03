@@ -11,7 +11,7 @@ import {
   Settings,
   ShieldCheck,
   Cpu,
-  Compass
+  Compass,
 } from "lucide-react";
 
 function Sidebar() {
@@ -31,57 +31,62 @@ function Sidebar() {
       <nav className="menu">
         <NavLink to="/" className="menu-item">
           <LayoutDashboard size={20} />
-          Monitoramento
+          <span>Monitoramento</span>
+        </NavLink>
+
+        <NavLink to="/clima-dia" className="menu-item">
+          <CloudSun size={20} />
+          <span>Clima do Dia</span>
         </NavLink>
 
         <NavLink to="/locais" className="menu-item">
           <MapPin size={20} />
-          Locais Monitorados
+          <span>Locais Monitorados</span>
         </NavLink>
 
         <NavLink to="/estacoes" className="menu-item">
           <Cpu size={20} />
-          Estações Locais
+          <span>Estações Locais</span>
         </NavLink>
 
         <NavLink to="/alertas" className="menu-item">
           <AlertTriangle size={20} />
-          Alertas
+          <span>Alertas</span>
         </NavLink>
 
         <NavLink to="/rosa-dos-ventos" className="menu-item">
           <Compass size={20} />
-          Rosa dos Ventos
+          <span>Rosa dos Ventos</span>
         </NavLink>
 
         <NavLink to="/mapa" className="menu-item">
           <Map size={20} />
-          Mapa Meteorológico
+          <span>Mapa Meteorológico</span>
         </NavLink>
 
         <NavLink to="/registros" className="menu-item">
           <CloudSun size={20} />
-          Registros
+          <span>Registros</span>
         </NavLink>
 
         <NavLink to="/analises" className="menu-item">
           <BarChart3 size={20} />
-          Análises
+          <span>Análises</span>
         </NavLink>
 
         <NavLink to="/relatorios" className="menu-item">
           <FileText size={20} />
-          Relatórios
+          <span>Relatórios</span>
         </NavLink>
 
         <NavLink to="/status" className="menu-item">
           <ShieldCheck size={20} />
-          Status do Sistema
+          <span>Status do Sistema</span>
         </NavLink>
 
         <NavLink to="/configuracoes" className="menu-item">
           <Settings size={20} />
-          Configurações
+          <span>Configurações</span>
         </NavLink>
       </nav>
     </aside>
