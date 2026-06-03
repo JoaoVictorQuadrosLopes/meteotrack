@@ -10,30 +10,32 @@ import CentroAnalises from "./pages/CentroAnalises";
 import Relatorios from "./pages/Relatorios";
 import MapaMeteorologico from "./pages/MapaMeteorologico";
 import DetalhesLocal from "./pages/DetalhesLocal";
-import AlertasMeteorologicos from "./pages/AlertasMeteorologicos";
 import Configuracoes from "./pages/Configuracoes";
 import StatusSistema from "./pages/StatusSistema";
 import EstacoesLocais from "./pages/EstacoesLocais";
 import Login from "./pages/Login";
-import { useAuth } from "./contexts/AuthContext";
 import Alertas from "./pages/Alertas";
+import RosaDosVentos from "./pages/RosaDosVentos";
+
+import { useAuth } from "./contexts/AuthContext";
 
 function App() {
   const { usuario, carregandoAuth } = useAuth();
 
-if (carregandoAuth) {
-  return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <p>Carregando sistema...</p>
+  if (carregandoAuth) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <p>Carregando sistema...</p>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-if (!usuario) {
-  return <Login />;
-}
+  if (!usuario) {
+    return <Login />;
+  }
+
   return (
     <BrowserRouter>
       <div className="app">
@@ -46,17 +48,16 @@ if (!usuario) {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/locais" element={<LocaisMonitorados />} />
+              <Route path="/estacoes" element={<EstacoesLocais />} />
               <Route path="/mapa" element={<MapaMeteorologico />} />
               <Route path="/registros" element={<RegistrosMeteorologicos />} />
               <Route path="/analises" element={<CentroAnalises />} />
               <Route path="/relatorios" element={<Relatorios />} />
-              <Route path="/local/:id" element={<DetalhesLocal />} />
-              <Route path="/alertas" element={<AlertasMeteorologicos />} />
-              <Route path="/configuracoes" element={<Configuracoes />} />
-              <Route path="/status" element={<StatusSistema />} />
-              <Route path="/estacoes" element={<EstacoesLocais />} />
               <Route path="/alertas" element={<Alertas />} />
-              
+              <Route path="/rosa-dos-ventos" element={<RosaDosVentos />} />
+              <Route path="/status" element={<StatusSistema />} />
+              <Route path="/configuracoes" element={<Configuracoes />} />
+              <Route path="/local/:id" element={<DetalhesLocal />} />
             </Routes>
           </section>
         </main>

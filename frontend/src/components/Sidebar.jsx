@@ -10,7 +10,8 @@ import {
   AlertTriangle,
   Settings,
   ShieldCheck,
-  Cpu
+  Cpu,
+  Compass
 } from "lucide-react";
 
 function Sidebar() {
@@ -33,24 +34,24 @@ function Sidebar() {
           Monitoramento
         </NavLink>
 
+        <NavLink to="/locais" className="menu-item">
+          <MapPin size={20} />
+          Locais Monitorados
+        </NavLink>
+
+        <NavLink to="/estacoes" className="menu-item">
+          <Cpu size={20} />
+          Estações Locais
+        </NavLink>
+
         <NavLink to="/alertas" className="menu-item">
           <AlertTriangle size={20} />
           Alertas
         </NavLink>
 
-        <NavLink to="/locais" className="menu-item">
-          <MapPin size={20} />
-          Locais Monitorados
-        </NavLink>
-        
-        <NavLink to="/estacoes" className="menu-item">
-        <Cpu size={20} />
-          Estações Locais
-        </NavLink>
-
-        <NavLink to="/alertas" className="menu-item">
-        <AlertTriangle size={20} />
-          Alertas
+        <NavLink to="/rosa-dos-ventos" className="menu-item">
+          <Compass size={20} />
+          Rosa dos Ventos
         </NavLink>
 
         <NavLink to="/mapa" className="menu-item">

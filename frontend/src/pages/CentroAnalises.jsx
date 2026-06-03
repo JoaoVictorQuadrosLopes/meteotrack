@@ -22,7 +22,8 @@ import {
   Sun,
   Zap,
   AlertTriangle,
-  Compass
+  Compass,
+  Gauge
 } from "lucide-react";
 
 import api from "../services/api";
@@ -66,7 +67,6 @@ function CentroAnalises() {
 
   function formatarDataCompleta(data) {
     if (!data) return "--";
-
     return new Date(data).toLocaleString("pt-BR");
   }
 
@@ -150,12 +150,12 @@ function CentroAnalises() {
   function montarDadosVento() {
     if (!resumo?.ventoPredominante?.distribuicao) return [];
 
-    return Object.entries(resumo.ventoPredominante.distribuicao).map(
-      ([direcao, quantidade]) => ({
+    return Object.entries(resumo.ventoPredominante.distribuicao)
+      .filter(([direcao]) => direcao !== "Indefinido")
+      .map(([direcao, quantidade]) => ({
         direcao,
         quantidade
-      })
-    );
+      }));
   }
 
   const dadosGrafico = montarDadosGrafico();
@@ -169,10 +169,10 @@ function CentroAnalises() {
     <div>
       <div className="page-title-row">
         <div>
-          <h1>Centro de Análises</h1>
+          <h1>Centro de Análises V2</h1>
           <p className="page-description">
-            Analise registros meteorológicos, potencial solar, alertas críticos
-            e vento predominante.
+            Análise técnica com potencial solar, estimativa fotovoltaica,
+            vento predominante e alertas meteorológicos.
           </p>
         </div>
       </div>
@@ -182,8 +182,8 @@ function CentroAnalises() {
       <form className="analysis-filter-card" onSubmit={buscarAnalise}>
         <div className="form-header">
           <div>
-            <h3>Filtros da análise técnica</h3>
-            <p>Escolha um local e um período para visualizar os indicadores.</p>
+            <h3>Filtros da análise</h3>
+            <p>Selecione um local e um período para gerar a análise técnica.</p>
           </div>
 
           <BarChart3 size={26} />
@@ -221,139 +221,246 @@ function CentroAnalises() {
 
         <button type="submit" className="submit-button" disabled={carregando}>
           <Search size={18} />
-          {carregando ? "Analisando..." : "Gerar análise"}
+          {carregando ? "Analisando..." : "Gerar análise técnica"}
         </button>
       </form>
 
       {resumo && (
         <>
-          <div className="cards-grid">
-            <div className="card">
-              <span>Registros analisados</span>
-              <strong>{resumo.quantidade}</strong>
-            </div>
+          <div className="dashboard-panels-grid">
+            <div className="dashboard-panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Resumo meteorológico</h2>
+                  <p>Indicadores gerais do período selecionado.</p>
+                </div>
 
-            <div className="card">
-              <span>Temperatura média</span>
-              <strong>{formatarNumero(resumo.temperaturaMedia)}°C</strong>
-            </div>
-
-            <div className="card">
-              <span>Umidade média</span>
-              <strong>{formatarNumero(resumo.umidadeMedia)}%</strong>
-            </div>
-
-            <div className="card">
-              <span>Chuva acumulada</span>
-              <strong>{formatarNumero(resumo.chuvaTotal)} mm</strong>
-            </div>
-
-            <div className="card">
-              <span>Vento médio</span>
-              <strong>{formatarNumero(resumo.ventoMedio)} km/h</strong>
-            </div>
-
-            <div className="card">
-              <span>Pressão média</span>
-              <strong>{formatarNumero(resumo.pressaoMedia)} hPa</strong>
-            </div>
-
-            <div className="card">
-              <span>Radiação solar média</span>
-              <strong>{formatarNumero(resumo.radiacaoSolarMedia)} W/m²</strong>
-            </div>
-
-            <div className="card">
-              <span>Maior radiação solar</span>
-              <strong>{formatarNumero(resumo.radiacaoSolarMaxima)} W/m²</strong>
-            </div>
-
-            <div className="card">
-              <span>Potencial solar</span>
-              <strong>{resumo.potencialSolar}</strong>
-            </div>
-
-            <div className="card">
-              <span>Energia estimada</span>
-              <strong>{formatarNumero(resumo.energiaSolarEstimada, 2)} kWh/dia</strong>
-            </div>
-
-            <div className="card">
-              <span>Vento predominante</span>
-              <strong>{resumo.ventoPredominante.direcao}</strong>
-            </div>
-
-            <div className="card">
-              <span>Alertas críticos</span>
-              <strong>{resumo.alertas.length}</strong>
-            </div>
-          </div>
-
-          <div className="records-summary-grid">
-            <div className="records-summary-card">
-              <Sun size={24} />
-              <div>
-                <span>Análise solar</span>
-                <strong>{resumo.potencialSolar}</strong>
+                <CloudRain size={24} />
               </div>
-            </div>
 
-            <div className="records-summary-card">
-              <Zap size={24} />
-              <div>
-                <span>Estimativa fotovoltaica</span>
-                <strong>
-                  {formatarNumero(resumo.energiaSolarEstimada, 2)} kWh/dia
-                </strong>
-              </div>
-            </div>
-
-            <div className="records-summary-card">
-              <Compass size={24} />
-              <div>
-                <span>Vento predominante</span>
-                <strong>
-                  {resumo.ventoPredominante.direcao} (
-                  {formatarNumero(resumo.ventoPredominante.percentual)}%)
-                </strong>
-              </div>
-            </div>
-
-            <div className="records-summary-card">
-              <AlertTriangle size={24} />
-              <div>
-                <span>Faixas críticas</span>
-                <strong>{resumo.alertas.length} alerta(s)</strong>
-              </div>
-            </div>
-          </div>
-
-          {resumo.alertas.length > 0 && (
-            <div className="analysis-alerts">
-              <h2>Alertas identificados</h2>
-
-              <div className="analysis-alerts-grid">
-                {resumo.alertas.map((alerta, index) => (
-                  <div className="analysis-alert-card" key={index}>
-                    <strong>{alerta.tipo}</strong>
-                    <p>{alerta.mensagem}</p>
-                    <span>
-                      Nível: {alerta.nivel} | Limite: {alerta.limite}
-                    </span>
+              <div className="records-summary-grid">
+                <div className="records-summary-card">
+                  <Thermometer size={22} />
+                  <div>
+                    <span>Temperatura média</span>
+                    <strong>{formatarNumero(resumo.temperaturaMedia)}°C</strong>
                   </div>
-                ))}
+                </div>
+
+                <div className="records-summary-card">
+                  <Droplets size={22} />
+                  <div>
+                    <span>Umidade média</span>
+                    <strong>{formatarNumero(resumo.umidadeMedia)}%</strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <CloudRain size={22} />
+                  <div>
+                    <span>Chuva acumulada</span>
+                    <strong>{formatarNumero(resumo.chuvaTotal)} mm</strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Gauge size={22} />
+                  <div>
+                    <span>Pressão média</span>
+                    <strong>{formatarNumero(resumo.pressaoMedia)} hPa</strong>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
+
+            <div className="dashboard-panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Potencial solar</h2>
+                  <p>Análise de irradiância e estimativa fotovoltaica.</p>
+                </div>
+
+                <Sun size={24} />
+              </div>
+
+              <div className="records-summary-grid">
+                <div className="records-summary-card">
+                  <Sun size={22} />
+                  <div>
+                    <span>Radiação média</span>
+                    <strong>
+                      {formatarNumero(resumo.radiacaoSolarMedia)} W/m²
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Sun size={22} />
+                  <div>
+                    <span>Maior radiação</span>
+                    <strong>
+                      {formatarNumero(resumo.radiacaoSolarMaxima)} W/m²
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Zap size={22} />
+                  <div>
+                    <span>Potencial solar</span>
+                    <strong>{resumo.potencialSolar}</strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Zap size={22} />
+                  <div>
+                    <span>Energia estimada</span>
+                    <strong>
+                      {formatarNumero(resumo.energiaSolarEstimada, 2)} kWh/dia
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-panels-grid">
+            <div className="dashboard-panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Vento predominante</h2>
+                  <p>Análise estatística da direção dos ventos.</p>
+                </div>
+
+                <Compass size={24} />
+              </div>
+
+              <div className="records-summary-grid">
+                <div className="records-summary-card">
+                  <Compass size={22} />
+                  <div>
+                    <span>Direção predominante</span>
+                    <strong>{resumo.ventoPredominante.direcao}</strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Wind size={22} />
+                  <div>
+                    <span>Vento médio</span>
+                    <strong>{formatarNumero(resumo.ventoMedio)} km/h</strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <BarChart3 size={22} />
+                  <div>
+                    <span>Frequência</span>
+                    <strong>
+                      {formatarNumero(resumo.ventoPredominante.percentual)}%
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <CalendarDays size={22} />
+                  <div>
+                    <span>Registros analisados</span>
+                    <strong>{resumo.quantidade}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="chart-card" style={{ marginTop: 18 }}>
+                <h3>
+                  <Compass size={22} />
+                  Distribuição do vento
+                </h3>
+
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={dadosVento}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="direcao" />
+                    <YAxis />
+                    <Tooltip
+                      formatter={(value) => [`${value}`, "Ocorrências"]}
+                    />
+                    <Bar dataKey="quantidade" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="dashboard-panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Alertas do período</h2>
+                  <p>Faixas críticas identificadas nos registros.</p>
+                </div>
+
+                <AlertTriangle size={24} />
+              </div>
+
+              <div className="records-summary-grid">
+                <div className="records-summary-card">
+                  <AlertTriangle size={22} />
+                  <div>
+                    <span>Total de alertas</span>
+                    <strong>{resumo.alertas.length}</strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Thermometer size={22} />
+                  <div>
+                    <span>Maior temperatura</span>
+                    <strong>
+                      {formatarNumero(resumo.temperaturaMaxima)}°C
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Thermometer size={22} />
+                  <div>
+                    <span>Menor temperatura</span>
+                    <strong>
+                      {formatarNumero(resumo.temperaturaMinima)}°C
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {resumo.alertas.length === 0 ? (
+                <div className="panel-empty" style={{ marginTop: 18 }}>
+                  Nenhuma faixa crítica foi identificada no período selecionado.
+                </div>
+              ) : (
+                <div className="dashboard-alert-list" style={{ marginTop: 18 }}>
+                  {resumo.alertas.slice(0, 5).map((alerta, index) => (
+                    <div className="dashboard-alert-item" key={index}>
+                      <div>
+                        <strong>{alerta.tipo}</strong>
+                        <span>{alerta.mensagem}</span>
+                      </div>
+
+                      <b>{alerta.valor}</b>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="analytics-grid">
             <div className="chart-card">
               <h3>
                 <Thermometer size={22} />
-                Variação de Temperatura
+                Temperatura
               </h3>
 
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={dadosGrafico}>
                   <Line type="monotone" dataKey="temperatura" strokeWidth={3} />
                   <CartesianGrid strokeDasharray="3 3" />
@@ -372,10 +479,10 @@ function CentroAnalises() {
             <div className="chart-card">
               <h3>
                 <Droplets size={22} />
-                Variação de Umidade
+                Umidade
               </h3>
 
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={dadosGrafico}>
                   <Line type="monotone" dataKey="umidade" strokeWidth={3} />
                   <CartesianGrid strokeDasharray="3 3" />
@@ -394,10 +501,10 @@ function CentroAnalises() {
             <div className="chart-card">
               <h3>
                 <CloudRain size={22} />
-                Chuva por Registro
+                Chuva
               </h3>
 
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={dadosGrafico}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="data" />
@@ -415,33 +522,11 @@ function CentroAnalises() {
 
             <div className="chart-card">
               <h3>
-                <Wind size={22} />
-                Velocidade do Vento
-              </h3>
-
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={dadosGrafico}>
-                  <Line type="monotone" dataKey="vento" strokeWidth={3} />
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="data" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value) => [`${value} km/h`, "Vento"]}
-                    labelFormatter={(_, payload) =>
-                      payload?.[0]?.payload?.dataCompleta || ""
-                    }
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="chart-card">
-              <h3>
                 <Sun size={22} />
-                Radiação Solar
+                Radiação solar
               </h3>
 
-              <ResponsiveContainer width="100%" height={320}>
+              <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={dadosGrafico}>
                   <Line
                     type="monotone"
@@ -460,25 +545,6 @@ function CentroAnalises() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-
-            <div className="chart-card">
-              <h3>
-                <Compass size={22} />
-                Distribuição do Vento
-              </h3>
-
-              <ResponsiveContainer width="100%" height={320}>
-                <BarChart data={dadosVento}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="direcao" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value) => [`${value}`, "Ocorrências"]}
-                  />
-                  <Bar dataKey="quantidade" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
           </div>
         </>
       )}
@@ -488,8 +554,8 @@ function CentroAnalises() {
           <CalendarDays size={42} />
           <h3>Nenhuma análise gerada</h3>
           <p>
-            Selecione um local e um período para visualizar gráficos, alertas,
-            potencial solar e vento predominante.
+            Selecione um local e um período para visualizar potencial solar,
+            vento predominante, alertas e gráficos.
           </p>
         </div>
       )}

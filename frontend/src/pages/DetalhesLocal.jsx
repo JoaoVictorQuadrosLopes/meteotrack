@@ -1,85 +1,142 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-
 import {
   ArrowLeft,
+  BarChart3,
+  CalendarDays,
+  CloudRain,
   CloudSun,
+  Compass,
   Database,
   Droplets,
+  FileText,
   Gauge,
   MapPin,
   RefreshCcw,
+  Save,
+  Sun,
   Thermometer,
   Wind,
-  CloudRain
+  Zap,
+  AlertTriangle
 } from "lucide-react";
 
-import {
-  LineChart,
-  Line,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar
-} from "recharts";
-
 import api from "../services/api";
+import { calcularAnaliseTecnica } from "../utils/analiseTecnica";
+import {
+  formatarOrigem,
+  obterClasseOrigem,
+  formatarData,
+  formatarNumero
+} from "../utils/formatadores";
 
 function DetalhesLocal() {
   const { id } = useParams();
   const navigate = useNavigate();
 
   const [local, setLocal] = useState(null);
-  const [clima, setClima] = useState(null);
+  const [climaAtual, setClimaAtual] = useState(null);
   const [registros, setRegistros] = useState([]);
+  const [analiseTecnica, setAnaliseTecnica] = useState(null);
+
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState("");
   const [erro, setErro] = useState("");
 
-  async function carregarDetalhes() {
+  function obterRadiacaoSolar(clima) {
+    const valor =
+      clima?.radiacao_solar ??
+      clima?.shortwave_radiation ??
+      clima?.solar_radiation ??
+      0;
+
+    return Number(valor);
+  }
+
+  async function carregarLocal() {
     try {
-      setCarregando(true);
-      setMensagem("");
-      setErro("");
+      const responseLocais = await api.get("/locais");
+      const locais = responseLocais.data || [];
 
-      const responseLocal = await api.get(`/locais/${id}`);
-      const localData = responseLocal.data;
+      const localEncontrado = locais.find((item) => item.id === id);
 
-      setLocal(localData);
+      if (!localEncontrado) {
+        setErro("Local não encontrado.");
+        return null;
+      }
 
-      const responseClima = await api.get("/weather/atual", {
+      setLocal(localEncontrado);
+      return localEncontrado;
+    } catch (error) {
+      console.error("Erro ao carregar local:", error);
+      setErro("Erro ao carregar os dados do local.");
+      return null;
+    }
+  }
+
+  async function carregarClimaAtual(localSelecionado) {
+    try {
+      if (!localSelecionado?.latitude || !localSelecionado?.longitude) {
+        return null;
+      }
+
+      const response = await api.get("/weather/atual", {
         params: {
-          latitude: localData.latitude,
-          longitude: localData.longitude
+          latitude: localSelecionado.latitude,
+          longitude: localSelecionado.longitude
         }
       });
 
-      setClima(responseClima.data.current);
+      const clima = response.data.current || {};
 
-      const hoje = new Date();
-      const seteDiasAtras = new Date();
-      seteDiasAtras.setDate(hoje.getDate() - 7);
+      setClimaAtual(clima);
+      return clima;
+    } catch (error) {
+      console.error("Erro ao carregar clima atual:", error);
+      return null;
+    }
+  }
 
-      const dataInicio = seteDiasAtras.toISOString().split("T")[0];
-      const dataFim = hoje.toISOString().split("T")[0];
-
-      const responseRegistros = await api.get("/registros", {
+  async function carregarRegistrosLocal() {
+    try {
+      const response = await api.get("/registros", {
         params: {
-          local_id: id,
-          data_inicio: dataInicio,
-          data_fim: dataFim
+          local_id: id
         }
       });
 
-      const registrosOrdenados = [...responseRegistros.data].sort((a, b) => {
-        return new Date(a.data_hora) - new Date(b.data_hora);
+      const registrosRecebidos = response.data || [];
+
+      const registrosOrdenados = [...registrosRecebidos].sort((a, b) => {
+        return new Date(b.data_hora) - new Date(a.data_hora);
       });
 
       setRegistros(registrosOrdenados);
+      setAnaliseTecnica(calcularAnaliseTecnica(registrosOrdenados));
+
+      return registrosOrdenados;
+    } catch (error) {
+      console.error("Erro ao carregar registros do local:", error);
+      setErro("Erro ao carregar registros deste local.");
+      return [];
+    }
+  }
+
+  async function carregarDetalhes() {
+    try {
+      setCarregando(true);
+      setErro("");
+      setMensagem("");
+
+      const localSelecionado = await carregarLocal();
+
+      if (localSelecionado) {
+        await Promise.all([
+          carregarClimaAtual(localSelecionado),
+          carregarRegistrosLocal()
+        ]);
+      }
     } catch (error) {
       console.error("Erro ao carregar detalhes:", error);
       setErro("Não foi possível carregar os detalhes do local.");
@@ -88,7 +145,7 @@ function DetalhesLocal() {
     }
   }
 
-  async function salvarRegistro() {
+  async function salvarRegistroAgora() {
     try {
       setSalvando(true);
       setMensagem("");
@@ -101,49 +158,13 @@ function DetalhesLocal() {
       await carregarDetalhes();
     } catch (error) {
       console.error("Erro ao salvar registro:", error);
-      setErro("Não foi possível salvar o registro meteorológico.");
+      setErro("Não foi possível salvar o registro deste local.");
     } finally {
       setSalvando(false);
     }
   }
 
-  function formatarData(data) {
-    if (!data) return "--";
-
-    return new Date(data).toLocaleString("pt-BR");
-  }
-
-  function formatarDataCurta(data) {
-    if (!data) return "--";
-
-    return new Date(data).toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "2-digit"
-    });
-  }
-
-  function formatarNumero(valor, casas = 1) {
-    const numero = Number(valor);
-
-    if (Number.isNaN(numero)) {
-      return "--";
-    }
-
-    return numero.toFixed(casas);
-  }
-
-  function montarDadosGrafico() {
-    return registros.map((registro) => ({
-      data: formatarDataCurta(registro.data_hora),
-      dataCompleta: formatarData(registro.data_hora),
-      temperatura: Number(registro.temperatura || 0),
-      umidade: Number(registro.umidade || 0),
-      chuva: Number(registro.precipitacao || 0),
-      vento: Number(registro.vento_velocidade || 0)
-    }));
-  }
-
-  const dadosGrafico = montarDadosGrafico();
+  const ultimosRegistros = registros.slice(0, 8);
 
   useEffect(() => {
     carregarDetalhes();
@@ -162,7 +183,11 @@ function DetalhesLocal() {
       <div className="empty-state">
         <MapPin size={42} />
         <h3>Local não encontrado</h3>
-        <p>Não foi possível encontrar o local solicitado.</p>
+        <p>Não foi possível localizar os dados deste local monitorado.</p>
+
+        <button type="button" onClick={() => navigate("/locais")}>
+          Voltar para locais
+        </button>
       </div>
     );
   }
@@ -175,17 +200,17 @@ function DetalhesLocal() {
             type="button"
             className="secondary-button"
             onClick={() => navigate(-1)}
+            style={{ marginBottom: 12 }}
           >
             <ArrowLeft size={18} />
             Voltar
           </button>
 
           <h1>{local.nome}</h1>
-
           <p className="page-description">
             {local.cidade}
-            {local.estado ? ` - ${local.estado}` : ""} •{" "}
-            {local.pais || "Brasil"} • {local.tipo || "Local"}
+            {local.estado ? ` - ${local.estado}` : ""} | Latitude:{" "}
+            {local.latitude} | Longitude: {local.longitude}
           </p>
         </div>
 
@@ -195,222 +220,317 @@ function DetalhesLocal() {
             Atualizar
           </button>
 
-          <button type="button" onClick={salvarRegistro} disabled={salvando}>
-            <Database size={18} />
+          <button type="button" onClick={salvarRegistroAgora} disabled={salvando}>
+            <Save size={18} />
             {salvando ? "Salvando..." : "Salvar registro"}
           </button>
         </div>
       </div>
 
-      {erro && <div className="message-box error-message">{erro}</div>}
       {mensagem && <div className="message-box">{mensagem}</div>}
+      {erro && <div className="message-box error-message">{erro}</div>}
 
-      <div className="local-details-hero">
+      <div className="executive-hero">
         <div>
           <span className="hero-label">Detalhes do local</span>
-          <h2>{local.nome}</h2>
+          <h2>Análise individual de {local.nome}</h2>
           <p>
-            Visualização completa do clima atual, histórico recente e indicadores
-            meteorológicos.
+            Visualize os dados atuais, histórico meteorológico, potencial solar,
+            vento predominante e alertas específicos deste local.
           </p>
         </div>
 
-        <div className="hero-icon">
-          <CloudSun size={48} />
+        <div className="executive-hero-icon">
+          <MapPin size={48} />
         </div>
       </div>
 
       <div className="cards-grid">
-        <div className="card">
+        <div className="card metric-card">
           <span>Temperatura atual</span>
-          <strong>{clima?.temperature_2m ?? "--"}°C</strong>
+          <strong>
+            {climaAtual?.temperature_2m !== undefined
+              ? `${formatarNumero(climaAtual.temperature_2m)}°C`
+              : "--"}
+          </strong>
         </div>
 
-        <div className="card">
-          <span>Sensação térmica</span>
-          <strong>{clima?.apparent_temperature ?? "--"}°C</strong>
+        <div className="card metric-card">
+          <span>Umidade atual</span>
+          <strong>
+            {climaAtual?.relative_humidity_2m !== undefined
+              ? `${formatarNumero(climaAtual.relative_humidity_2m)}%`
+              : "--"}
+          </strong>
         </div>
 
-        <div className="card">
-          <span>Umidade</span>
-          <strong>{clima?.relative_humidity_2m ?? "--"}%</strong>
+        <div className="card metric-card">
+          <span>Vento atual</span>
+          <strong>
+            {climaAtual?.wind_speed_10m !== undefined
+              ? `${formatarNumero(climaAtual.wind_speed_10m)} km/h`
+              : "--"}
+          </strong>
         </div>
 
-        <div className="card">
-          <span>Vento</span>
-          <strong>{clima?.wind_speed_10m ?? "--"} km/h</strong>
-        </div>
-
-        <div className="card">
-          <span>Pressão</span>
-          <strong>{clima?.pressure_msl ?? "--"} hPa</strong>
-        </div>
-
-        <div className="card">
-          <span>Chuva</span>
-          <strong>{clima?.precipitation ?? "--"} mm</strong>
-        </div>
-      </div>
-
-      <div className="local-info-grid">
-        <div className="local-info-card">
-          <h3>Dados cadastrais</h3>
-
-          <div className="local-info-line">
-            <MapPin size={18} />
-            <span>
-              {local.cidade}
-              {local.estado ? ` - ${local.estado}` : ""}
-            </span>
-          </div>
-
-          <div className="local-info-line">
-            <Thermometer size={18} />
-            <span>Tipo: {local.tipo || "Local"}</span>
-          </div>
-
-          <div className="local-info-line">
-            <Gauge size={18} />
-            <span>Latitude: {formatarNumero(local.latitude, 5)}</span>
-          </div>
-
-          <div className="local-info-line">
-            <Gauge size={18} />
-            <span>Longitude: {formatarNumero(local.longitude, 5)}</span>
-          </div>
-        </div>
-
-        <div className="local-info-card">
-          <h3>Resumo do histórico</h3>
-
-          <div className="local-info-line">
-            <Database size={18} />
-            <span>Registros nos últimos 7 dias: {registros.length}</span>
-          </div>
-
-          <div className="local-info-line">
-            <Thermometer size={18} />
-            <span>
-              Última temperatura registrada:{" "}
-              {registros.length > 0
-                ? `${formatarNumero(
-                    registros[registros.length - 1].temperatura
-                  )}°C`
-                : "--"}
-            </span>
-          </div>
-
-          <div className="local-info-line">
-            <CloudRain size={18} />
-            <span>
-              Chuva acumulada:{" "}
-              {formatarNumero(
-                registros.reduce(
-                  (total, registro) =>
-                    total + Number(registro.precipitacao || 0),
-                  0
-                )
-              )}{" "}
-              mm
-            </span>
-          </div>
+        <div className="card metric-card">
+          <span>Radiação solar atual</span>
+          <strong>
+            {climaAtual
+              ? `${formatarNumero(obterRadiacaoSolar(climaAtual))} W/m²`
+              : "--"}
+          </strong>
         </div>
       </div>
 
-      <div className="analytics-grid">
-        <div className="chart-card">
-          <h3>
-            <Thermometer size={22} />
-            Temperatura recente
-          </h3>
+      <div className="dashboard-panels-grid">
+        <div className="dashboard-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Condições atuais</h2>
+              <p>Dados meteorológicos coletados em tempo real.</p>
+            </div>
 
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dadosGrafico}>
-              <Line type="monotone" dataKey="temperatura" strokeWidth={3} />
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="data" />
-              <YAxis />
-              <Tooltip
-                formatter={(value) => [`${value}°C`, "Temperatura"]}
-                labelFormatter={(_, payload) =>
-                  payload?.[0]?.payload?.dataCompleta || ""
-                }
-              />
-            </LineChart>
-          </ResponsiveContainer>
+            <CloudSun size={24} />
+          </div>
+
+          <div className="records-summary-grid">
+            <div className="records-summary-card">
+              <Thermometer size={22} />
+              <div>
+                <span>Sensação térmica</span>
+                <strong>
+                  {climaAtual?.apparent_temperature !== undefined
+                    ? `${formatarNumero(climaAtual.apparent_temperature)}°C`
+                    : "--"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <Gauge size={22} />
+              <div>
+                <span>Pressão</span>
+                <strong>
+                  {climaAtual?.pressure_msl !== undefined
+                    ? `${formatarNumero(climaAtual.pressure_msl)} hPa`
+                    : "--"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <CloudRain size={22} />
+              <div>
+                <span>Chuva</span>
+                <strong>
+                  {climaAtual?.precipitation !== undefined
+                    ? `${formatarNumero(climaAtual.precipitation)} mm`
+                    : "--"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <Wind size={22} />
+              <div>
+                <span>Direção do vento</span>
+                <strong>
+                  {climaAtual?.wind_direction_10m !== undefined
+                    ? `${formatarNumero(climaAtual.wind_direction_10m)}°`
+                    : "--"}
+                </strong>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="chart-card">
-          <h3>
-            <CloudRain size={22} />
-            Chuva recente
-          </h3>
+        <div className="dashboard-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Análise técnica V2</h2>
+              <p>Indicadores calculados a partir dos registros deste local.</p>
+            </div>
 
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={dadosGrafico}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="data" />
-              <YAxis />
-              <Tooltip
-                formatter={(value) => [`${value} mm`, "Chuva"]}
-                labelFormatter={(_, payload) =>
-                  payload?.[0]?.payload?.dataCompleta || ""
-                }
-              />
-              <Bar dataKey="chuva" />
-            </BarChart>
-          </ResponsiveContainer>
+            <BarChart3 size={24} />
+          </div>
+
+          <div className="records-summary-grid">
+            <div className="records-summary-card">
+              <Sun size={22} />
+              <div>
+                <span>Potencial solar</span>
+                <strong>{analiseTecnica?.potencialSolar || "Sem dados"}</strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <Zap size={22} />
+              <div>
+                <span>Energia estimada</span>
+                <strong>
+                  {analiseTecnica
+                    ? `${formatarNumero(
+                        analiseTecnica.energiaSolarEstimada,
+                        2
+                      )} kWh/dia`
+                    : "--"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <Compass size={22} />
+              <div>
+                <span>Vento predominante</span>
+                <strong>
+                  {analiseTecnica?.ventoPredominante?.direcao || "Indefinido"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <AlertTriangle size={22} />
+              <div>
+                <span>Alertas do local</span>
+                <strong>{analiseTecnica?.alertas?.length || 0}</strong>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="details-button"
+            onClick={() => navigate("/analises")}
+          >
+            Ver análise completa
+          </button>
         </div>
       </div>
 
-      <div className="analytics-grid">
-        <div className="chart-card">
-          <h3>
-            <Droplets size={22} />
-            Umidade recente
-          </h3>
+      <div className="dashboard-panels-grid">
+        <div className="dashboard-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Resumo histórico</h2>
+              <p>Resumo dos registros já salvos para este local.</p>
+            </div>
 
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dadosGrafico}>
-              <Line type="monotone" dataKey="umidade" strokeWidth={3} />
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="data" />
-              <YAxis />
-              <Tooltip
-                formatter={(value) => [`${value}%`, "Umidade"]}
-                labelFormatter={(_, payload) =>
-                  payload?.[0]?.payload?.dataCompleta || ""
-                }
-              />
-            </LineChart>
-          </ResponsiveContainer>
+            <Database size={24} />
+          </div>
+
+          <div className="records-summary-grid">
+            <div className="records-summary-card">
+              <CalendarDays size={22} />
+              <div>
+                <span>Total de registros</span>
+                <strong>{analiseTecnica?.quantidade || 0}</strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <Thermometer size={22} />
+              <div>
+                <span>Temperatura média</span>
+                <strong>
+                  {analiseTecnica
+                    ? `${formatarNumero(analiseTecnica.temperaturaMedia)}°C`
+                    : "--"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <Droplets size={22} />
+              <div>
+                <span>Umidade média</span>
+                <strong>
+                  {analiseTecnica
+                    ? `${formatarNumero(analiseTecnica.umidadeMedia)}%`
+                    : "--"}
+                </strong>
+              </div>
+            </div>
+
+            <div className="records-summary-card">
+              <Sun size={22} />
+              <div>
+                <span>Radiação média</span>
+                <strong>
+                  {analiseTecnica
+                    ? `${formatarNumero(analiseTecnica.radiacaoSolarMedia)} W/m²`
+                    : "--"}
+                </strong>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="chart-card">
-          <h3>
-            <Wind size={22} />
-            Vento recente
-          </h3>
+        <div className="dashboard-panel">
+          <div className="panel-header">
+            <div>
+              <h2>Ações rápidas</h2>
+              <p>Acesse áreas relacionadas a este local.</p>
+            </div>
 
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={dadosGrafico}>
-              <Line type="monotone" dataKey="vento" strokeWidth={3} />
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="data" />
-              <YAxis />
-              <Tooltip
-                formatter={(value) => [`${value} km/h`, "Vento"]}
-                labelFormatter={(_, payload) =>
-                  payload?.[0]?.payload?.dataCompleta || ""
-                }
-              />
-            </LineChart>
-          </ResponsiveContainer>
+            <FileText size={24} />
+          </div>
+
+          <div className="dashboard-actions" style={{ flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => navigate(`/registros?local_id=${id}`)}
+            >
+              <Database size={18} />
+              Ver registros
+            </button>
+
+            <button type="button" onClick={() => navigate("/relatorios")}>
+              <FileText size={18} />
+              Gerar relatório
+            </button>
+
+            <button type="button" onClick={() => navigate("/rosa-dos-ventos")}>
+              <Compass size={18} />
+              Rosa dos ventos
+            </button>
+
+            <button type="button" onClick={() => navigate("/mapa")}>
+              <MapPin size={18} />
+              Ver no mapa
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="analysis-table-section">
-        <h2>Últimos registros do local</h2>
+      {analiseTecnica?.alertas?.length > 0 && (
+        <div className="dashboard-panel" style={{ marginTop: 24 }}>
+          <div className="panel-header">
+            <div>
+              <h2>Alertas identificados</h2>
+              <p>Faixas críticas encontradas nos registros deste local.</p>
+            </div>
+
+            <AlertTriangle size={24} />
+          </div>
+
+          <div className="dashboard-alert-list">
+            {analiseTecnica.alertas.slice(0, 5).map((alerta, index) => (
+              <div className="dashboard-alert-item" key={index}>
+                <div>
+                  <strong>{alerta.tipo}</strong>
+                  <span>{alerta.mensagem}</span>
+                </div>
+
+                <b>{alerta.valor}</b>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="report-table-box">
+        <h3>Últimos registros do local</h3>
 
         <div className="table-card">
           <table>
@@ -422,12 +542,13 @@ function DetalhesLocal() {
                 <th>Pressão</th>
                 <th>Vento</th>
                 <th>Chuva</th>
+                <th>Radiação Solar</th>
                 <th>Origem</th>
               </tr>
             </thead>
 
             <tbody>
-              {registros.map((registro) => (
+              {ultimosRegistros.map((registro) => (
                 <tr key={registro.id}>
                   <td>{formatarData(registro.data_hora)}</td>
                   <td>{formatarNumero(registro.temperatura)}°C</td>
@@ -435,15 +556,23 @@ function DetalhesLocal() {
                   <td>{formatarNumero(registro.pressao)} hPa</td>
                   <td>{formatarNumero(registro.vento_velocidade)} km/h</td>
                   <td>{formatarNumero(registro.precipitacao)} mm</td>
-                  <td>{registro.origem || "--"}</td>
+                  <td>{formatarNumero(registro.radiacao_solar)} W/m²</td>
+                  <td>
+                    <span
+                      className={`origin-badge origin-${obterClasseOrigem(
+                        registro.origem
+                      )}`}
+                    >
+                      {formatarOrigem(registro.origem)}
+                    </span>
+                  </td>
                 </tr>
               ))}
 
-              {registros.length === 0 && (
+              {ultimosRegistros.length === 0 && (
                 <tr>
-                  <td colSpan="7">
-                    Nenhum registro encontrado para este local nos últimos 7
-                    dias.
+                  <td colSpan="8">
+                    Nenhum registro encontrado para este local.
                   </td>
                 </tr>
               )}

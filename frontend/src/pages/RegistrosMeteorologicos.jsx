@@ -14,6 +14,7 @@ import {
   Sun
 } from "lucide-react";
 import api from "../services/api";
+import { formatarOrigem } from "../utils/formatadores";
 
 function RegistrosMeteorologicos() {
   const [locais, setLocais] = useState([]);

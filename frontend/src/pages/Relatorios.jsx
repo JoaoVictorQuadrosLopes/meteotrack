@@ -13,8 +13,10 @@ import {
   Sun,
   Zap,
   Compass,
-  AlertTriangle
+  AlertTriangle,
+  BarChart3
 } from "lucide-react";
+
 import api from "../services/api";
 import { calcularAnaliseTecnica } from "../utils/analiseTecnica";
 
@@ -57,6 +59,16 @@ function Relatorios() {
     return numero.toFixed(casas);
   }
 
+  function limitarTexto(texto, limite = 90) {
+    if (!texto) return "";
+
+    if (texto.length <= limite) {
+      return texto;
+    }
+
+    return `${texto.slice(0, limite)}...`;
+  }
+
   async function gerarRelatorio(e) {
     e.preventDefault();
 
@@ -84,7 +96,10 @@ function Relatorios() {
         }
       });
 
-      const registros = responseRegistros.data;
+      const registros = [...responseRegistros.data].sort((a, b) => {
+        return new Date(a.data_hora) - new Date(b.data_hora);
+      });
+
       const resumo = calcularAnaliseTecnica(registros);
 
       const dadosRelatorio = {
@@ -115,6 +130,10 @@ function Relatorios() {
     }
   }
 
+  function escreverLinha(doc, texto, x, y, opcoes = {}) {
+    doc.text(String(texto), x, y, opcoes);
+  }
+
   function baixarPDF() {
     if (!relatorio) {
       setMensagem("Gere um relatório antes de baixar.");
@@ -127,124 +146,368 @@ function Relatorios() {
     const resumo = relatorio.resumo;
     const registros = relatorio.registros;
 
+    let y = 18;
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
-    doc.text("MeteoTrack - Relatorio Tecnico Meteorologico", 14, 18);
+    escreverLinha(doc, "MeteoTrack - Relatorio Tecnico V2", 14, y);
+
+    y += 9;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text(`Gerado em: ${relatorio.geradoEm.toLocaleString("pt-BR")}`, 14, 27);
+    escreverLinha(
+      doc,
+      `Gerado em: ${relatorio.geradoEm.toLocaleString("pt-BR")}`,
+      14,
+      y
+    );
+
+    y += 15;
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("Dados do local", 14, 42);
+    escreverLinha(doc, "1. Dados do local", 14, y);
+
+    y += 9;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text(`Nome: ${local.nome}`, 14, 51);
-    doc.text(`Cidade: ${local.cidade}`, 14, 59);
-    doc.text(`Estado: ${local.estado || "-"}`, 14, 67);
-    doc.text(`Pais: ${local.pais || "Brasil"}`, 14, 75);
-    doc.text(`Periodo: ${relatorio.dataInicio} ate ${relatorio.dataFim}`, 14, 83);
+    escreverLinha(doc, `Nome: ${local.nome}`, 14, y);
+    y += 8;
+    escreverLinha(doc, `Cidade: ${local.cidade}`, 14, y);
+    y += 8;
+    escreverLinha(doc, `Estado: ${local.estado || "-"}`, 14, y);
+    y += 8;
+    escreverLinha(doc, `Pais: ${local.pais || "Brasil"}`, 14, y);
+    y += 8;
+    escreverLinha(
+      doc,
+      `Periodo analisado: ${relatorio.dataInicio} ate ${relatorio.dataFim}`,
+      14,
+      y
+    );
+
+    y += 15;
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("Resumo meteorologico", 14, 99);
+    escreverLinha(doc, "2. Resumo meteorologico", 14, y);
+
+    y += 9;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text(`Quantidade de registros: ${resumo.quantidade}`, 14, 108);
-    doc.text(`Temperatura media: ${formatarNumero(resumo.temperaturaMedia)} C`, 14, 116);
-    doc.text(`Maior temperatura: ${formatarNumero(resumo.temperaturaMaxima)} C`, 14, 124);
-    doc.text(`Menor temperatura: ${formatarNumero(resumo.temperaturaMinima)} C`, 14, 132);
-    doc.text(`Umidade media: ${formatarNumero(resumo.umidadeMedia)} %`, 14, 140);
-    doc.text(`Vento medio: ${formatarNumero(resumo.ventoMedio)} km/h`, 14, 148);
-    doc.text(`Pressao media: ${formatarNumero(resumo.pressaoMedia)} hPa`, 14, 156);
-    doc.text(`Chuva acumulada: ${formatarNumero(resumo.chuvaTotal)} mm`, 14, 164);
+    escreverLinha(doc, `Quantidade de registros: ${resumo.quantidade}`, 14, y);
+    y += 8;
+    escreverLinha(
+      doc,
+      `Temperatura media: ${formatarNumero(resumo.temperaturaMedia)} C`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      `Maior temperatura: ${formatarNumero(resumo.temperaturaMaxima)} C`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      `Menor temperatura: ${formatarNumero(resumo.temperaturaMinima)} C`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      `Umidade media: ${formatarNumero(resumo.umidadeMedia)} %`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      `Pressao media: ${formatarNumero(resumo.pressaoMedia)} hPa`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      `Chuva acumulada: ${formatarNumero(resumo.chuvaTotal)} mm`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      `Vento medio: ${formatarNumero(resumo.ventoMedio)} km/h`,
+      14,
+      y
+    );
+
+    y += 15;
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("Analise tecnica V2", 14, 180);
+    escreverLinha(doc, "3. Analise solar e irradiancia", 14, y);
+
+    y += 9;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text(`Radiacao solar media: ${formatarNumero(resumo.radiacaoSolarMedia)} W/m2`, 14, 189);
-    doc.text(`Maior radiacao solar: ${formatarNumero(resumo.radiacaoSolarMaxima)} W/m2`, 14, 197);
-    doc.text(`Potencial solar: ${resumo.potencialSolar}`, 14, 205);
-    doc.text(`Energia estimada: ${formatarNumero(resumo.energiaSolarEstimada, 2)} kWh/dia`, 14, 213);
-    doc.text(`Vento predominante: ${resumo.ventoPredominante.direcao}`, 14, 221);
-    doc.text(`Frequencia do vento predominante: ${formatarNumero(resumo.ventoPredominante.percentual)} %`, 14, 229);
-    doc.text(`Alertas identificados: ${resumo.alertas.length}`, 14, 237);
+    escreverLinha(
+      doc,
+      `Radiacao solar media: ${formatarNumero(resumo.radiacaoSolarMedia)} W/m2`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      `Maior radiacao solar: ${formatarNumero(
+        resumo.radiacaoSolarMaxima
+      )} W/m2`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(doc, `Classificacao: ${resumo.potencialSolar}`, 14, y);
+    y += 8;
+    escreverLinha(
+      doc,
+      `Energia estimada: ${formatarNumero(
+        resumo.energiaSolarEstimada,
+        2
+      )} kWh/dia`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      "Parametros considerados: area de 10 m2, 5 horas de sol e eficiencia de 18%.",
+      14,
+      y,
+      { maxWidth: 180 }
+    );
 
-    let y = 253;
+    y += 15;
+
+    if (y > 255) {
+      doc.addPage();
+      y = 18;
+    }
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("Alertas do periodo", 14, y);
+    escreverLinha(doc, "4. Analise do vento predominante", 14, y);
+
+    y += 9;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    escreverLinha(
+      doc,
+      `Direcao predominante: ${resumo.ventoPredominante.direcao}`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      `Frequencia: ${formatarNumero(resumo.ventoPredominante.percentual)} %`,
+      14,
+      y
+    );
+    y += 8;
+    escreverLinha(
+      doc,
+      `Ocorrencias: ${resumo.ventoPredominante.quantidade}`,
+      14,
+      y
+    );
+
+    y += 10;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    escreverLinha(doc, "Distribuicao dos ventos:", 14, y);
 
     y += 8;
 
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(9);
 
-    if (resumo.alertas.length === 0) {
-      doc.text("Nenhum alerta critico identificado no periodo.", 14, y);
-      y += 8;
-    } else {
-      resumo.alertas.slice(0, 8).forEach((alerta) => {
+    Object.entries(resumo.ventoPredominante.distribuicao || {}).forEach(
+      ([direcao, quantidade]) => {
+        if (direcao === "Indefinido") return;
+
         if (y > 280) {
           doc.addPage();
-          y = 20;
+          y = 18;
         }
 
-        doc.text(`${alerta.tipo} - ${alerta.valor} - ${alerta.nivel}`, 14, y);
+        escreverLinha(doc, `${direcao}: ${quantidade} registro(s)`, 18, y);
         y += 6;
-      });
-    }
+      }
+    );
 
-    doc.addPage();
+    y += 10;
+
+    if (y > 250) {
+      doc.addPage();
+      y = 18;
+    }
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("Registros do periodo", 14, 18);
+    escreverLinha(doc, "5. Alertas criticos", 14, y);
+
+    y += 9;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+
+    if (resumo.alertas.length === 0) {
+      escreverLinha(
+        doc,
+        "Nenhum alerta critico foi identificado no periodo analisado.",
+        14,
+        y
+      );
+      y += 8;
+    } else {
+      resumo.alertas.slice(0, 12).forEach((alerta) => {
+        if (y > 280) {
+          doc.addPage();
+          y = 18;
+        }
+
+        escreverLinha(
+          doc,
+          `${alerta.tipo} | ${alerta.nivel} | ${alerta.valor} | Limite: ${alerta.limite}`,
+          14,
+          y
+        );
+        y += 6;
+
+        escreverLinha(doc, limitarTexto(alerta.mensagem, 110), 18, y, {
+          maxWidth: 175
+        });
+        y += 8;
+      });
+
+      if (resumo.alertas.length > 12) {
+        escreverLinha(
+          doc,
+          `Observacao: foram exibidos os primeiros 12 alertas de ${resumo.alertas.length}.`,
+          14,
+          y
+        );
+        y += 8;
+      }
+    }
+
+    y += 10;
+
+    if (y > 240) {
+      doc.addPage();
+      y = 18;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    escreverLinha(doc, "6. Observacao metodologica", 14, y);
+
+    y += 9;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    escreverLinha(
+      doc,
+      "A estimativa fotovoltaica apresentada e simplificada e possui finalidade academica, nao substituindo um projeto tecnico profissional. Os calculos consideram valores medios de radiacao solar dos registros, area padrao de 10 m2, 5 horas de sol e eficiencia estimada de 18%.",
+      14,
+      y,
+      { maxWidth: 180 }
+    );
+
+    doc.addPage();
+
+    y = 18;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    escreverLinha(doc, "7. Registros do periodo", 14, y);
+
+    y += 10;
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
 
-    y = 30;
-
     if (registros.length === 0) {
-      doc.text("Nenhum registro encontrado para o periodo selecionado.", 14, y);
+      escreverLinha(
+        doc,
+        "Nenhum registro encontrado para o periodo selecionado.",
+        14,
+        y
+      );
     } else {
-      doc.text("Data/Hora", 14, y);
-      doc.text("Temp.", 55, y);
-      doc.text("Umid.", 73, y);
-      doc.text("Vento", 91, y);
-      doc.text("Chuva", 112, y);
-      doc.text("Rad.", 133, y);
-      doc.text("Origem", 160, y);
+      escreverLinha(doc, "Data/Hora", 14, y);
+      escreverLinha(doc, "Temp.", 55, y);
+      escreverLinha(doc, "Umid.", 73, y);
+      escreverLinha(doc, "Vento", 91, y);
+      escreverLinha(doc, "Chuva", 112, y);
+      escreverLinha(doc, "Rad.", 133, y);
+      escreverLinha(doc, "Origem", 160, y);
 
       y += 7;
 
-      registros.slice(0, 30).forEach((registro) => {
+      registros.slice(0, 35).forEach((registro) => {
         if (y > 280) {
           doc.addPage();
-          y = 20;
+          y = 18;
         }
 
-        doc.text(formatarData(registro.data_hora), 14, y);
-        doc.text(`${formatarNumero(registro.temperatura)}C`, 55, y);
-        doc.text(`${formatarNumero(registro.umidade)}%`, 73, y);
-        doc.text(`${formatarNumero(registro.vento_velocidade)}km/h`, 91, y);
-        doc.text(`${formatarNumero(registro.precipitacao)}mm`, 112, y);
-        doc.text(`${formatarNumero(registro.radiacao_solar)}W/m2`, 133, y);
-        doc.text(`${registro.origem || "--"}`, 160, y);
+        escreverLinha(doc, formatarData(registro.data_hora), 14, y);
+        escreverLinha(doc, `${formatarNumero(registro.temperatura)}C`, 55, y);
+        escreverLinha(doc, `${formatarNumero(registro.umidade)}%`, 73, y);
+        escreverLinha(
+          doc,
+          `${formatarNumero(registro.vento_velocidade)}km/h`,
+          91,
+          y
+        );
+        escreverLinha(doc, `${formatarNumero(registro.precipitacao)}mm`, 112, y);
+        escreverLinha(
+          doc,
+          `${formatarNumero(registro.radiacao_solar)}W/m2`,
+          133,
+          y
+        );
+        escreverLinha(doc, `${registro.origem || "--"}`, 160, y);
 
         y += 7;
       });
+
+      if (registros.length > 35) {
+        y += 5;
+        escreverLinha(
+          doc,
+          `Observacao: o PDF exibiu os primeiros 35 registros. O CSV contem todos os ${registros.length} registros.`,
+          14,
+          y,
+          { maxWidth: 180 }
+        );
+      }
     }
 
-    const nomeArquivo = `relatorio-tecnico-${local.cidade || "local"}-${relatorio.dataInicio}-${relatorio.dataFim}.pdf`
+    const nomeArquivo = `relatorio-tecnico-v2-${local.cidade || "local"}-${
+      relatorio.dataInicio
+    }-${relatorio.dataFim}.pdf`
       .toLowerCase()
       .replaceAll(" ", "-");
 
@@ -262,7 +525,7 @@ function Relatorios() {
     const registros = relatorio.registros;
 
     const linhas = [
-      ["Relatório Técnico Meteorológico"],
+      ["Relatório Técnico Meteorológico V2"],
       ["Local", local.nome],
       ["Cidade", local.cidade],
       ["Estado", local.estado || ""],
@@ -271,7 +534,7 @@ function Relatorios() {
       ["Data final", relatorio.dataFim],
       ["Gerado em", relatorio.geradoEm.toLocaleString("pt-BR")],
       [],
-      ["Resumo"],
+      ["Resumo meteorológico"],
       ["Quantidade de registros", resumo.quantidade],
       ["Temperatura média", `${formatarNumero(resumo.temperaturaMedia)} °C`],
       ["Maior temperatura", `${formatarNumero(resumo.temperaturaMaxima)} °C`],
@@ -280,15 +543,26 @@ function Relatorios() {
       ["Vento médio", `${formatarNumero(resumo.ventoMedio)} km/h`],
       ["Pressão média", `${formatarNumero(resumo.pressaoMedia)} hPa`],
       ["Chuva acumulada", `${formatarNumero(resumo.chuvaTotal)} mm`],
+      [],
+      ["Análise solar"],
       ["Radiação solar média", `${formatarNumero(resumo.radiacaoSolarMedia)} W/m²`],
       ["Maior radiação solar", `${formatarNumero(resumo.radiacaoSolarMaxima)} W/m²`],
       ["Potencial solar", resumo.potencialSolar],
       ["Energia estimada", `${formatarNumero(resumo.energiaSolarEstimada, 2)} kWh/dia`],
-      ["Vento predominante", resumo.ventoPredominante.direcao],
-      ["Frequência do vento predominante", `${formatarNumero(resumo.ventoPredominante.percentual)} %`],
-      ["Alertas identificados", resumo.alertas.length],
+      ["Parâmetros", "Área 10 m²; 5 horas de sol; eficiência 18%"],
       [],
-      ["Alertas"],
+      ["Vento predominante"],
+      ["Direção predominante", resumo.ventoPredominante.direcao],
+      ["Frequência", `${formatarNumero(resumo.ventoPredominante.percentual)} %`],
+      ["Ocorrências", resumo.ventoPredominante.quantidade],
+      [],
+      ["Distribuição dos ventos"],
+      ["Direção", "Quantidade"],
+      ...Object.entries(resumo.ventoPredominante.distribuicao || {}).map(
+        ([direcao, quantidade]) => [direcao, quantidade]
+      ),
+      [],
+      ["Alertas críticos"],
       ["Tipo", "Nível", "Valor", "Limite", "Mensagem", "Data/Hora"],
       ...resumo.alertas.map((alerta) => [
         alerta.tipo,
@@ -298,12 +572,6 @@ function Relatorios() {
         alerta.mensagem,
         formatarData(alerta.data_hora)
       ]),
-      [],
-      ["Distribuição dos ventos"],
-      ["Direção", "Quantidade"],
-      ...Object.entries(resumo.ventoPredominante.distribuicao || {}).map(
-        ([direcao, quantidade]) => [direcao, quantidade]
-      ),
       [],
       [
         "Data/Hora",
@@ -341,7 +609,9 @@ function Relatorios() {
     const link = document.createElement("a");
 
     link.href = url;
-    link.download = `relatorio-tecnico-${local.cidade || "local"}-${relatorio.dataInicio}-${relatorio.dataFim}.csv`
+    link.download = `relatorio-tecnico-v2-${local.cidade || "local"}-${
+      relatorio.dataInicio
+    }-${relatorio.dataFim}.csv`
       .toLowerCase()
       .replaceAll(" ", "-");
 
@@ -358,10 +628,10 @@ function Relatorios() {
     <div>
       <div className="page-title-row">
         <div>
-          <h1>Relatórios</h1>
+          <h1>Relatórios V2</h1>
           <p className="page-description">
-            Gere relatórios técnicos com potencial solar, alertas e vento
-            predominante.
+            Gere relatórios técnicos com potencial solar, irradiância, alertas
+            críticos e vento predominante.
           </p>
         </div>
       </div>
@@ -421,9 +691,9 @@ function Relatorios() {
           />
         </div>
 
-        <button type="submit" className="submit-button">
+        <button type="submit" className="submit-button" disabled={carregando}>
           <Search size={18} />
-          {carregando ? "Gerando..." : "Gerar relatório"}
+          {carregando ? "Gerando..." : "Gerar relatório técnico"}
         </button>
       </form>
 
@@ -431,7 +701,7 @@ function Relatorios() {
         <div className="report-preview modern-report">
           <div className="report-preview-header">
             <div>
-              <span className="hero-label">Prévia do relatório técnico</span>
+              <span className="hero-label">Prévia do relatório técnico V2</span>
               <h2>{relatorio.local.nome}</h2>
               <p>
                 {relatorio.local.cidade}
@@ -462,20 +732,6 @@ function Relatorios() {
             </div>
 
             <div className="card">
-              <span>Temperatura média</span>
-              <strong>
-                {formatarNumero(relatorio.resumo.temperaturaMedia)}°C
-              </strong>
-            </div>
-
-            <div className="card">
-              <span>Radiação solar média</span>
-              <strong>
-                {formatarNumero(relatorio.resumo.radiacaoSolarMedia)} W/m²
-              </strong>
-            </div>
-
-            <div className="card">
               <span>Potencial solar</span>
               <strong>{relatorio.resumo.potencialSolar}</strong>
             </div>
@@ -494,147 +750,216 @@ function Relatorios() {
             </div>
 
             <div className="card">
-              <span>Alertas</span>
+              <span>Alertas críticos</span>
               <strong>{relatorio.resumo.alertas.length}</strong>
             </div>
           </div>
 
-          <div className="report-details-grid">
-            <div className="report-detail-item">
-              <Sun size={22} />
-              <div>
-                <span>Maior radiação solar</span>
-                <strong>
-                  {formatarNumero(relatorio.resumo.radiacaoSolarMaxima)} W/m²
-                </strong>
+          <div className="dashboard-panels-grid">
+            <div className="dashboard-panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Resumo meteorológico</h2>
+                  <p>Indicadores gerais do período.</p>
+                </div>
+
+                <CloudRain size={24} />
+              </div>
+
+              <div className="records-summary-grid">
+                <div className="records-summary-card">
+                  <Thermometer size={22} />
+                  <div>
+                    <span>Temperatura média</span>
+                    <strong>
+                      {formatarNumero(relatorio.resumo.temperaturaMedia)}°C
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Droplets size={22} />
+                  <div>
+                    <span>Umidade média</span>
+                    <strong>
+                      {formatarNumero(relatorio.resumo.umidadeMedia)}%
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Gauge size={22} />
+                  <div>
+                    <span>Pressão média</span>
+                    <strong>
+                      {formatarNumero(relatorio.resumo.pressaoMedia)} hPa
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <CloudRain size={22} />
+                  <div>
+                    <span>Chuva acumulada</span>
+                    <strong>
+                      {formatarNumero(relatorio.resumo.chuvaTotal)} mm
+                    </strong>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="report-detail-item">
-              <Zap size={22} />
-              <div>
-                <span>Estimativa fotovoltaica</span>
-                <strong>
-                  {formatarNumero(relatorio.resumo.energiaSolarEstimada, 2)}{" "}
-                  kWh/dia
-                </strong>
-              </div>
-            </div>
+            <div className="dashboard-panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Análise solar</h2>
+                  <p>Potencial solar e estimativa fotovoltaica.</p>
+                </div>
 
-            <div className="report-detail-item">
-              <Compass size={22} />
-              <div>
-                <span>Vento predominante</span>
-                <strong>
-                  {relatorio.resumo.ventoPredominante.direcao} (
-                  {formatarNumero(
-                    relatorio.resumo.ventoPredominante.percentual
-                  )}
-                  %)
-                </strong>
+                <Sun size={24} />
               </div>
-            </div>
 
-            <div className="report-detail-item">
-              <AlertTriangle size={22} />
-              <div>
-                <span>Faixas críticas</span>
-                <strong>{relatorio.resumo.alertas.length} alerta(s)</strong>
-              </div>
-            </div>
+              <div className="records-summary-grid">
+                <div className="records-summary-card">
+                  <Sun size={22} />
+                  <div>
+                    <span>Radiação média</span>
+                    <strong>
+                      {formatarNumero(relatorio.resumo.radiacaoSolarMedia)} W/m²
+                    </strong>
+                  </div>
+                </div>
 
-            <div className="report-detail-item">
-              <Thermometer size={22} />
-              <div>
-                <span>Maior temperatura</span>
-                <strong>
-                  {formatarNumero(relatorio.resumo.temperaturaMaxima)}°C
-                </strong>
-              </div>
-            </div>
+                <div className="records-summary-card">
+                  <Sun size={22} />
+                  <div>
+                    <span>Maior radiação</span>
+                    <strong>
+                      {formatarNumero(relatorio.resumo.radiacaoSolarMaxima)} W/m²
+                    </strong>
+                  </div>
+                </div>
 
-            <div className="report-detail-item">
-              <Droplets size={22} />
-              <div>
-                <span>Umidade média</span>
-                <strong>
-                  {formatarNumero(relatorio.resumo.umidadeMedia)}%
-                </strong>
-              </div>
-            </div>
+                <div className="records-summary-card">
+                  <Zap size={22} />
+                  <div>
+                    <span>Classificação</span>
+                    <strong>{relatorio.resumo.potencialSolar}</strong>
+                  </div>
+                </div>
 
-            <div className="report-detail-item">
-              <Gauge size={22} />
-              <div>
-                <span>Pressão média</span>
-                <strong>
-                  {formatarNumero(relatorio.resumo.pressaoMedia)} hPa
-                </strong>
-              </div>
-            </div>
-
-            <div className="report-detail-item">
-              <CloudRain size={22} />
-              <div>
-                <span>Chuva acumulada</span>
-                <strong>
-                  {formatarNumero(relatorio.resumo.chuvaTotal)} mm
-                </strong>
-              </div>
-            </div>
-
-            <div className="report-detail-item">
-              <Wind size={22} />
-              <div>
-                <span>Vento médio</span>
-                <strong>
-                  {formatarNumero(relatorio.resumo.ventoMedio)} km/h
-                </strong>
-              </div>
-            </div>
-
-            <div className="report-detail-item">
-              <CalendarDays size={22} />
-              <div>
-                <span>Período</span>
-                <strong>
-                  {relatorio.dataInicio} até {relatorio.dataFim}
-                </strong>
+                <div className="records-summary-card">
+                  <Zap size={22} />
+                  <div>
+                    <span>Energia estimada</span>
+                    <strong>
+                      {formatarNumero(
+                        relatorio.resumo.energiaSolarEstimada,
+                        2
+                      )}{" "}
+                      kWh/dia
+                    </strong>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {relatorio.resumo.alertas.length > 0 && (
-            <div className="report-table-box">
-              <h3>Alertas encontrados</h3>
+          <div className="dashboard-panels-grid">
+            <div className="dashboard-panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Vento predominante</h2>
+                  <p>Análise estatística para rosa dos ventos.</p>
+                </div>
 
-              <div className="table-card">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Tipo</th>
-                      <th>Nível</th>
-                      <th>Valor</th>
-                      <th>Limite</th>
-                      <th>Mensagem</th>
-                    </tr>
-                  </thead>
+                <Compass size={24} />
+              </div>
 
-                  <tbody>
-                    {relatorio.resumo.alertas.map((alerta, index) => (
-                      <tr key={index}>
-                        <td>{alerta.tipo}</td>
-                        <td>{alerta.nivel}</td>
-                        <td>{alerta.valor}</td>
-                        <td>{alerta.limite}</td>
-                        <td>{alerta.mensagem}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="records-summary-grid">
+                <div className="records-summary-card">
+                  <Compass size={22} />
+                  <div>
+                    <span>Direção</span>
+                    <strong>
+                      {relatorio.resumo.ventoPredominante.direcao}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <BarChart3 size={22} />
+                  <div>
+                    <span>Frequência</span>
+                    <strong>
+                      {formatarNumero(
+                        relatorio.resumo.ventoPredominante.percentual
+                      )}
+                      %
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="records-summary-card">
+                  <Wind size={22} />
+                  <div>
+                    <span>Vento médio</span>
+                    <strong>
+                      {formatarNumero(relatorio.resumo.ventoMedio)} km/h
+                    </strong>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
+
+            <div className="dashboard-panel">
+              <div className="panel-header">
+                <div>
+                  <h2>Alertas do período</h2>
+                  <p>Faixas críticas identificadas nos registros.</p>
+                </div>
+
+                <AlertTriangle size={24} />
+              </div>
+
+              {relatorio.resumo.alertas.length === 0 ? (
+                <div className="panel-empty">
+                  Nenhum alerta crítico foi identificado no período.
+                </div>
+              ) : (
+                <div className="dashboard-alert-list">
+                  {relatorio.resumo.alertas.slice(0, 5).map((alerta, index) => (
+                    <div className="dashboard-alert-item" key={index}>
+                      <div>
+                        <strong>{alerta.tipo}</strong>
+                        <span>{alerta.mensagem}</span>
+                      </div>
+
+                      <b>{alerta.valor}</b>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-panel" style={{ marginTop: 24 }}>
+            <div className="panel-header">
+              <div>
+                <h2>Observação metodológica</h2>
+                <p>Critérios utilizados para o cálculo técnico.</p>
+              </div>
+
+              <CalendarDays size={24} />
+            </div>
+
+            <div className="panel-empty">
+              A estimativa fotovoltaica apresentada é simplificada e possui
+              finalidade acadêmica, não substituindo um projeto técnico
+              profissional. O cálculo considera área de 10 m², 5 horas de sol e
+              eficiência estimada de 18%.
+            </div>
+          </div>
 
           <div className="report-table-box">
             <h3>Registros encontrados</h3>
