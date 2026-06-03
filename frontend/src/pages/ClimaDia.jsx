@@ -11,14 +11,14 @@ import {
   Navigation,
 } from "lucide-react";
 
+import api from "../services/api";
+
 function ClimaDia() {
   const [locais, setLocais] = useState([]);
   const [localSelecionado, setLocalSelecionado] = useState("");
   const [clima, setClima] = useState(null);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
-
-  const API_URL = import.meta.env.VITE_API_URL;
 
   useEffect(() => {
     carregarLocais();
@@ -29,15 +29,6 @@ function ClimaDia() {
       carregarClimaDoDia(localSelecionado);
     }
   }, [localSelecionado, locais]);
-
-  function pegarToken() {
-    return (
-      localStorage.getItem("token") ||
-      localStorage.getItem("authToken") ||
-      localStorage.getItem("firebaseToken") ||
-      localStorage.getItem("accessToken")
-    );
-  }
 
   function normalizarListaLocais(dados) {
     if (Array.isArray(dados)) return dados;
@@ -56,31 +47,11 @@ function ClimaDia() {
       setErro("");
       setCarregando(true);
 
-      if (!API_URL) {
-        setErro("VITE_API_URL não está configurada no frontend.");
-        return;
-      }
+      const response = await api.get("/locais");
 
-      const token = pegarToken();
+      console.log("Resposta /locais:", response.data);
 
-      const resposta = await fetch(`${API_URL}/api/locais`, {
-        headers: token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {},
-      });
-
-      const dados = await resposta.json();
-
-      console.log("Resposta /api/locais:", dados);
-
-      if (!resposta.ok) {
-        setErro(dados.erro || dados.message || "Erro ao buscar locais monitorados.");
-        return;
-      }
-
-      const lista = normalizarListaLocais(dados);
+      const lista = normalizarListaLocais(response.data);
 
       setLocais(lista);
 
@@ -91,7 +62,7 @@ function ClimaDia() {
       }
     } catch (error) {
       console.error("Erro ao carregar locais:", error);
-      setErro("Não foi possível carregar os locais monitorados.");
+      setErro("Erro ao carregar locais monitorados.");
     } finally {
       setCarregando(false);
     }
@@ -118,19 +89,16 @@ function ClimaDia() {
         return;
       }
 
-      const resposta = await fetch(
-        `${API_URL}/api/weather/previsao?latitude=${latitude}&longitude=${longitude}`
-      );
+      const response = await api.get("/weather/previsao", {
+        params: {
+          latitude,
+          longitude,
+        },
+      });
 
-      const dados = await resposta.json();
+      const dados = response.data;
 
-      console.log("Resposta /api/weather/previsao:", dados);
-
-      if (!resposta.ok) {
-        setErro(dados.erro || dados.message || "Erro ao buscar clima do dia.");
-        setClima(null);
-        return;
-      }
+      console.log("Resposta /weather/previsao:", dados);
 
       const climaFormatado = formatarClima(dados, local);
 
@@ -207,12 +175,17 @@ function ClimaDia() {
   }
 
   function calcularProbabilidadeChuva(hourly, dados) {
-    if (dados.probabilidadeChuva !== undefined) return dados.probabilidadeChuva;
-    if (dados.chanceChuva !== undefined) return dados.chanceChuva;
+    if (dados.probabilidadeChuva !== undefined) {
+      return Number(dados.probabilidadeChuva);
+    }
+
+    if (dados.chanceChuva !== undefined) {
+      return Number(dados.chanceChuva);
+    }
 
     if (hourly.precipitation_probability?.length > 0) {
       const valores = hourly.precipitation_probability.slice(0, 24);
-      return Math.max(...valores);
+      return Math.max(...valores.map((valor) => Number(valor || 0)));
     }
 
     return 0;
@@ -238,6 +211,15 @@ function ClimaDia() {
     return "fraco";
   }
 
+  function limitarPorcentagem(valor) {
+    const numero = Number(valor || 0);
+
+    if (numero < 0) return 0;
+    if (numero > 100) return 100;
+
+    return numero;
+  }
+
   return (
     <main className="page">
       <div className="page-header">
@@ -246,9 +228,13 @@ function ClimaDia() {
           <p>Resumo das condições climáticas atuais do local monitorado.</p>
         </div>
 
-        <button className="btn-primary" onClick={() => carregarClimaDoDia()}>
+        <button
+          className="btn-primary"
+          onClick={() => carregarClimaDoDia()}
+          disabled={carregando || !localSelecionado}
+        >
           <RefreshCcw size={18} />
-          <span>Atualizar</span>
+          <span>{carregando ? "Atualizando..." : "Atualizar"}</span>
         </button>
       </div>
 
@@ -267,8 +253,8 @@ function ClimaDia() {
 
               return (
                 <option key={id} value={id}>
-                  {local.cidade || local.nome || local.nomeLocal || "Local"}{" "}
-                  {local.estado || local.uf ? `- ${local.estado || local.uf}` : ""}
+                  {local.cidade || local.nome || local.nomeLocal || "Local"}
+                  {local.estado || local.uf ? ` - ${local.estado || local.uf}` : ""}
                 </option>
               );
             })}
@@ -371,7 +357,9 @@ function ClimaDia() {
                   className={`barra-preenchida ${classificarChuva(
                     clima.probabilidadeChuva
                   )}`}
-                  style={{ width: `${clima.probabilidadeChuva}%` }}
+                  style={{
+                    width: `${limitarPorcentagem(clima.probabilidadeChuva)}%`,
+                  }}
                 ></div>
               </div>
 
