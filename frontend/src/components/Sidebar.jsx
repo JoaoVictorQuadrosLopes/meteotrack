@@ -48,6 +48,11 @@ function Sidebar() {
           Estações Locais
         </NavLink>
 
+        <NavLink to="/alertas" className="menu-item">
+        <AlertTriangle size={20} />
+          Alertas
+        </NavLink>
+
         <NavLink to="/mapa" className="menu-item">
           <Map size={20} />
           Mapa Meteorológico

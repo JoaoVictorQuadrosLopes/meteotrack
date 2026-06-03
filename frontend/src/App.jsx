@@ -16,6 +16,7 @@ import StatusSistema from "./pages/StatusSistema";
 import EstacoesLocais from "./pages/EstacoesLocais";
 import Login from "./pages/Login";
 import { useAuth } from "./contexts/AuthContext";
+import Alertas from "./pages/Alertas";
 
 function App() {
   const { usuario, carregandoAuth } = useAuth();
@@ -54,6 +55,7 @@ if (!usuario) {
               <Route path="/configuracoes" element={<Configuracoes />} />
               <Route path="/status" element={<StatusSistema />} />
               <Route path="/estacoes" element={<EstacoesLocais />} />
+              <Route path="/alertas" element={<Alertas />} />
               
             </Routes>
           </section>
